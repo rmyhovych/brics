@@ -1,0 +1,47 @@
+[package]
+authors = ["rmyhovych <rmyhovych@gmail.com>"]
+edition = "2018"
+name = "rustgame-client"
+version = "0.1.0"
+
+[features]
+default = []
+replay = ["serde", "wgc/replay"]
+trace = ["serde", "wgc/trace"]
+vulkan-portability = ["wgc/gfx-backend-vulkan"]
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies.wgc]
+features = ["raw-window-handle"]
+package = "wgpu-core"
+version = "0.6"
+
+[dependencies.wgt]
+package = "wgpu-types"
+version = "0.6"
+
+[dependencies]
+arrayvec = "0.5"
+bytemuck = "1"
+cgmath = "0.17"
+ddsfile = "0.4"
+futures = "0.3"
+log = "0.4"
+noise = "0.6"
+parking_lot = "0.11"
+png = "0.16"
+rand = {version = "0.7.2", features = ["wasm-bindgen"]}
+raw-window-handle = "0.3"
+serde = {version = "1", features = ["derive"], optional = true}
+shaderc = "0.6"
+smallvec = "1"
+tracing = {version = "0.1", default-features = false, features = ["std"]}
+typed-arena = "2.0.1"
+wgpu = "0.6"
+wgpu-subscriber = "0.1"
+winit = {version = "0.22.1", features = ["web-sys"]}
+
+[target.'cfg(all(unix, not(target_os = "ios"), not(target_os = "macos")))'.dependencies]
+gfx-backend-vulkan = {version = "0.6", features = ["x11"]}
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc = "0.2.7"
