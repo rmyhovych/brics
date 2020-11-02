@@ -78,6 +78,6 @@ impl UniformDescriptor<CameraUniform> for Camera {
 
     fn apply_on_renderpass(&mut self, _: &mut wgpu::RenderPass, write_queue: &wgpu::Queue) {
         let uniform_data = CameraUniform::new(&self.position, &self.direction, self.aspect_ratio);
-        self.update_uniform(write_queue, &uniform_data);
+        self.write_uniform(write_queue, &uniform_data);
     }
 }

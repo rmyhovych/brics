@@ -33,7 +33,7 @@ pub trait UniformDescriptor<T: Uniform> {
         }
     }
 
-    fn update_uniform(&mut self, write_queue: &wgpu::Queue, data: &T) {
+    fn write_uniform(&mut self, write_queue: &wgpu::Queue, data: &T) {
         write_queue.write_buffer(
             self.get_uniform_buffer(),
             0,

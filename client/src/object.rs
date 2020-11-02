@@ -141,7 +141,7 @@ impl UniformDescriptor<ObjectUniform> for ObjectFamily {
         renderpass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         renderpass.set_index_buffer(self.index_buffer.slice(..));
         for obj in &self.objects {
-            self.update_uniform(write_queue, &obj.get_uniform_data());
+            self.write_uniform(write_queue, &obj.get_uniform_data());
             renderpass.draw_indexed(0..self.n_indexes, 0, 0..1);
         }
     }
