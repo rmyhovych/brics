@@ -8,6 +8,10 @@ use shader_compiler::ShaderCompiler;
 mod object;
 use object::{Object, ObjectFamily};
 
+mod uniform;
+
+mod camera;
+
 #[derive(Debug)]
 struct Setup {
     window: winit::window::Window,
@@ -28,8 +32,6 @@ unsafe impl Pod for Vertex {}
 unsafe impl Zeroable for Vertex {}
 
 struct MVP {
-    projection: cgmath::Matrix4<f32>,
-    view: cgmath::Matrix4<f32>,
     model: cgmath::Matrix4<f32>,
     color: cgmath::Vector3<f32>,
 }
