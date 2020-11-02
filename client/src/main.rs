@@ -5,6 +5,8 @@ use wgpu::util::DeviceExt;
 mod shader_compiler;
 use shader_compiler::ShaderCompiler;
 
+mod object;
+
 #[derive(Debug)]
 struct Setup {
     window: winit::window::Window,
@@ -292,32 +294,19 @@ fn run(setup: Setup) {
         *control_flow = if cfg!(feature = "metal_auto_captyre") {
             winit::event_loop::ControlFlow::Exit
         } else {
-            #[cfg(not(target_arch = "wasm32"))]
-            {
-                winit::event_loop::ControlFlow::WaitUntil(
-                    std::time::Instant::now() + std::time::Duration::from_millis(10),
-                )
-            }
-            #[cfg(target_arch = "wasm32")]
-            {
-                winit::event_loop::ControlFlow::Poll
-            }
+            winit::event_loop::ControlFlow::WaitUntil(
+                std::time::Instant::now() + std::time::Duration::from_millis(10),
+            )
         };
 
         match event {
             winit::event::Event::MainEventsCleared => {
-                #[cfg(not(target_arch = "wasm32"))]
-                {
-                    if last_update_inst.elapsed() > std::time::Duration::from_millis(20) {
-                        window.request_redraw();
-                        last_update_inst = std::time::Instant::now();
-                    }
-
-                    pool.run_until_stalled();
+                if last_update_inst.elapsed() > std::time::Duration::from_millis(20) {
+                    window.request_redraw();
+                    last_update_inst = std::time::Instant::now();
                 }
 
-                #[cfg(target_arch = "wasm32")]
-                window.request_redraw();
+                pool.run_until_stalled();
             }
             winit::event::Event::WindowEvent { event, .. } => match event {
                 winit::event::WindowEvent::KeyboardInput {
@@ -345,40 +334,47 @@ fn run(setup: Setup) {
                     }
                 };
 
-                let mut encoder =
-                    device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
-                {
-                    let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                        color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                            attachment: &frame.output.view,
-                            resolve_target: None,
-                            ops: wgpu::Operations {
-                                load: wgpu::LoadOp::Clear(wgpu::Color {
-                                    r: 0.1,
-                                    g: 0.2,
-                                    b: 0.3,
-                                    a: 1.0,
-                                }),
-                                store: true,
-                            },
-                        }],
-                        depth_stencil_attachment: None,
-                    });
-                    rpass.push_debug_group("Prepare data for draw.");
-                    rpass.set_pipeline(&pipeline);
-                    rpass.set_bind_group(0, &bind_group, &[]);
-                    rpass.set_index_buffer(index_buffer.slice(..));
-                    rpass.set_vertex_buffer(0, vertex_buffer.slice(..));
-                    rpass.pop_debug_group();
-                    rpass.insert_debug_marker("Draw!");
-                    rpass.draw_indexed(0..index_data.len() as u32, 0, 0..1);
-                }
-
-                queue.submit(Some(encoder.finish()));
+                render(&frame, &device, &pipeline, &bind_group, &queue);
             }
             _ => {}
         }
     });
+}
+
+fn render(
+    frame: &wgpu::SwapChainFrame,
+    device: &wgpu::Device,
+    pipeline: &wgpu::RenderPipeline,
+    bind_group: &wgpu::BindGroup,
+    queue: &wgpu::Queue,
+) {
+    let mut encoder =
+        device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+    {
+        let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
+                attachment: &frame.output.view,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color {
+                        r: 0.1,
+                        g: 0.2,
+                        b: 0.3,
+                        a: 1.0,
+                    }),
+                    store: true,
+                },
+            }],
+            depth_stencil_attachment: None,
+        });
+        rpass.set_pipeline(&pipeline);
+        rpass.set_bind_group(0, &bind_group, &[]);
+        rpass.set_index_buffer(index_buffer.slice(..));
+        rpass.set_vertex_buffer(0, vertex_buffer.slice(..));
+        rpass.draw_indexed(0..index_data.len() as u32, 0, 0..1);
+    }
+
+    queue.submit(Some(encoder.finish()));
 }
 
 fn main() {
