@@ -5,6 +5,19 @@ use wgpu::{self, util::DeviceExt};
 
 /*--------------------------------------------------------------------------------------------------*/
 
+struct ObjectUniform {
+    model: Matrix4<f32>,
+    color: Vector3<f32>,
+}
+
+impl ObjectUniform {
+    fn as_ref(&self) -> &[f32; (4 * 4) + 3] {
+        unsafe { return mem::transmute(self) }
+    }
+}
+
+/*--------------------------------------------------------------------------------------------------*/
+
 pub struct Object {
     translation: Vector3<f32>,
     rotation: Quaternion<f32>,
@@ -52,12 +65,19 @@ impl Object {
         self.rotation = delta_rotation * self.rotation;
     }
 
-    fn get_model_mat(&self) -> Matrix4<f32> {
+    fn get_uniform_data(&self) -> ObjectUniform {
         let mut model = Matrix4::from_nonuniform_scale(self.scale.x, self.scale.y, self.scale.z);
         model = Matrix4::from(self.rotation) * model;
         model = Matrix4::from_translation(self.translation);
 
-        model
+        ObjectUniform {
+            model,
+            color: self.color,
+        }
+    }
+
+    fn get_uniform_size() -> u64 {
+        (mem::size_of::<ObjectUniform>()) as u64
     }
 }
 
@@ -66,6 +86,7 @@ impl Object {
 pub struct ObjectFamily {
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
+    n_indexes: u32,
 
     model_uniform_buffer: wgpu::Buffer,
 
@@ -91,9 +112,11 @@ impl ObjectFamily {
                 usage: wgpu::BufferUsage::INDEX,
             }),
 
+            n_indexes: index_data.len() as _,
+
             model_uniform_buffer: device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some("Model Uniform Buffer"),
-                size: ObjectFamily::get_uniform_size(),
+                size: Object::get_uniform_size(),
                 usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
                 mapped_at_creation: false,
             }),
@@ -107,17 +130,31 @@ impl ObjectFamily {
         self.objects.last_mut().unwrap()
     }
 
-    pub fn apply_on_renderpass(&self, renderpass: &wgpu::RenderPass, write_queue: &wgpu::Queue) {
+    pub fn apply_on_renderpass<'a>(
+        &'a self,
+        renderpass: &wgpu::RenderPass<'a>,
+        write_queue: &wgpu::Queue,
+    ) {
         renderpass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+        renderpass.set_index_buffer(self.index_buffer.slice(..));
+        for obj in self.objects {
+            let uniform_data = obj.get_uniform_data();
+            write_queue.write_buffer(
+                &self.model_uniform_buffer,
+                0,
+                bytemuck::cast_slice(uniform_data.as_ref()),
+            );
+            renderpass.draw_indexed(0..self.n_indexes, 0, 0..1);
+        }
     }
 
     pub fn get_bind_group_layout_entry(&self) -> wgpu::BindGroupLayoutEntry {
         wgpu::BindGroupLayoutEntry {
-            binding: 0,
+            binding: 1,
             visibility: wgpu::ShaderStage::VERTEX,
             ty: wgpu::BindingType::UniformBuffer {
                 dynamic: false,
-                min_binding_size: wgpu::BufferSize::new(ObjectFamily::get_uniform_size()),
+                min_binding_size: wgpu::BufferSize::new(Object::get_uniform_size()),
             },
             count: None,
         }
@@ -125,12 +162,8 @@ impl ObjectFamily {
 
     pub fn get_bind_group_entry(&self) -> wgpu::BindGroupEntry {
         wgpu::BindGroupEntry {
-            binding: 0,
+            binding: 1,
             resource: wgpu::BindingResource::Buffer(self.model_uniform_buffer.slice(..)),
         }
-    }
-
-    fn get_uniform_size() -> u64 {
-        mem::size_of::<Matrix4<f32>>() as u64
     }
 }

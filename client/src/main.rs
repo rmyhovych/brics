@@ -6,6 +6,7 @@ mod shader_compiler;
 use shader_compiler::ShaderCompiler;
 
 mod object;
+use object::{Object, ObjectFamily};
 
 #[derive(Debug)]
 struct Setup {
@@ -346,6 +347,7 @@ fn render(
     device: &wgpu::Device,
     pipeline: &wgpu::RenderPipeline,
     bind_group: &wgpu::BindGroup,
+    object_families: &Vec<ObjectFamily>,
     queue: &wgpu::Queue,
 ) {
     let mut encoder =
@@ -369,9 +371,9 @@ fn render(
         });
         rpass.set_pipeline(&pipeline);
         rpass.set_bind_group(0, &bind_group, &[]);
-        rpass.set_index_buffer(index_buffer.slice(..));
-        rpass.set_vertex_buffer(0, vertex_buffer.slice(..));
-        rpass.draw_indexed(0..index_data.len() as u32, 0, 0..1);
+        for family in object_families {
+            family.apply_on_renderpass(&rpass, queue);
+        }
     }
 
     queue.submit(Some(encoder.finish()));
