@@ -1,6 +1,5 @@
-use bytemuck::{Pod, Zeroable};
-use std::mem;
-use wgpu::util::DeviceExt;
+use cgmath;
+use wgpu;
 
 mod shader_compiler;
 use shader_compiler::ShaderCompiler;
@@ -9,8 +8,10 @@ mod object;
 use object::{Object, ObjectFamily};
 
 mod uniform;
+use uniform::{Uniform, UniformDescriptor};
 
 mod camera;
+use camera::Camera;
 
 #[derive(Debug)]
 struct Setup {
@@ -23,39 +24,8 @@ struct Setup {
     queue: wgpu::Queue,
 }
 
-#[derive(Clone, Copy)]
-struct Vertex {
-    pos: [f32; 3],
-}
-
-unsafe impl Pod for Vertex {}
-unsafe impl Zeroable for Vertex {}
-
-struct MVP {
-    model: cgmath::Matrix4<f32>,
-    color: cgmath::Vector3<f32>,
-}
-
-impl MVP {
-    fn as_ref(&self) -> &[f32; 52] {
-        unsafe { return mem::transmute(self) }
-    }
-}
-
-fn create_vertices() -> (Vec<Vertex>, Vec<u16>) {
-    let vertex_data = [
-        Vertex {
-            pos: [-1.0, 1.0, 0.0],
-        },
-        Vertex {
-            pos: [1.0, 1.0, 0.0],
-        },
-        Vertex {
-            pos: [0.0, -1.0, 0.0],
-        },
-    ]
-    .to_vec();
-
+fn create_vertices() -> (Vec<[f32; 3]>, Vec<u16>) {
+    let vertex_data = [[-1.0, 1.0, 0.0], [1.0, 1.0, 0.0], [0.0, -1.0, 0.0]].to_vec();
     let index_data = [0, 1, 2].to_vec();
 
     return (vertex_data, index_data);
@@ -147,43 +117,33 @@ fn run(setup: Setup) {
         .create_swap_chain(&setup.surface, &swap_chain_descriptor);
     println!("Created swapchain : {:?}", swap_chain);
 
-    let vertex_size = mem::size_of::<Vertex>();
     let (vertex_data, index_data) = create_vertices();
 
-    let vertex_buffer = setup
-        .device
-        .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Vertex Buffer"),
-            contents: bytemuck::cast_slice(&vertex_data),
-            usage: wgpu::BufferUsage::VERTEX,
-        });
-    println!("Vertex Buffer : {:?}", vertex_buffer);
+    let mut object_family = ObjectFamily::new(&setup.device, &vertex_data, &index_data);
+    let mut camera = Camera::new(
+        &setup.device,
+        &cgmath::Point3 {
+            x: -1.0,
+            y: 0.0,
+            z: 0.0,
+        },
+        &cgmath::Vector3 {
+            x: 1.0,
+            y: 0.0,
+            z: 0.0,
+        },
+        1.0,
+    );
 
-    let index_buffer = setup
-        .device
-        .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Index Buffer"),
-            contents: bytemuck::cast_slice(&index_data),
-            usage: wgpu::BufferUsage::INDEX,
-        });
-    println!("Index Buffer : {:?}", index_buffer);
-
-    let mat_size: u64 = mem::size_of::<MVP>() as u64;
-    println!("Mat : {}", mat_size);
     let bind_group_layout =
         setup
             .device
             .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: None,
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStage::VERTEX,
-                    ty: wgpu::BindingType::UniformBuffer {
-                        dynamic: false,
-                        min_binding_size: wgpu::BufferSize::new(mat_size),
-                    },
-                    count: None,
-                }],
+                entries: &[
+                    object_family.get_bind_group_layout_entry(),
+                    camera.get_bind_group_layout_entry(),
+                ],
             });
 
     let pipeline_layout = setup
@@ -194,36 +154,13 @@ fn run(setup: Setup) {
             push_constant_ranges: &[],
         });
 
-    let uniforms = MVP {
-        projection: cgmath::perspective(cgmath::Deg(90.0), 1.0, 0.01, 1000.0),
-        view: cgmath::Matrix4::look_at(
-            cgmath::Point3::new(1.5, -5.0, 3.0),
-            cgmath::Point3::new(0.0, 0.0, 0.0),
-            cgmath::Vector3::unit_z(),
-        ),
-        model: cgmath::Matrix4::from_scale(1.0 as f32),
-        color: cgmath::Vector3 {
-            x: 0.2,
-            y: 0.8,
-            z: 0.2,
-        },
-    };
-
-    let uniform_buffer = setup
-        .device
-        .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Uniform Buffer"),
-            contents: bytemuck::cast_slice(uniforms.as_ref()),
-            usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-        });
-
     let bind_group = setup.device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: None,
         layout: &bind_group_layout,
-        entries: &[wgpu::BindGroupEntry {
-            binding: 0,
-            resource: wgpu::BindingResource::Buffer(uniform_buffer.slice(..)),
-        }],
+        entries: &[
+            object_family.get_bind_group_entry(),
+            camera.get_bind_group_entry(),
+        ],
     });
 
     let mut sc = ShaderCompiler::new();
@@ -265,7 +202,7 @@ fn run(setup: Setup) {
             vertex_state: wgpu::VertexStateDescriptor {
                 index_format: wgpu::IndexFormat::Uint16,
                 vertex_buffers: &[wgpu::VertexBufferDescriptor {
-                    stride: vertex_size as u64,
+                    stride: std::mem::size_of::<[f32; 3]>() as u64, // TODO: Separate trait
                     step_mode: wgpu::InputStepMode::Vertex,
                     attributes: &[wgpu::VertexAttributeDescriptor {
                         format: wgpu::VertexFormat::Float3,
@@ -337,7 +274,15 @@ fn run(setup: Setup) {
                     }
                 };
 
-                render(&frame, &device, &pipeline, &bind_group, &queue);
+                render(
+                    &frame,
+                    &device,
+                    &pipeline,
+                    &bind_group,
+                    &mut camera,
+                    &mut object_family,
+                    &queue,
+                );
             }
             _ => {}
         }
@@ -349,7 +294,8 @@ fn render(
     device: &wgpu::Device,
     pipeline: &wgpu::RenderPipeline,
     bind_group: &wgpu::BindGroup,
-    object_families: &Vec<ObjectFamily>,
+    camera: &mut Camera,
+    object_family: &mut ObjectFamily,
     queue: &wgpu::Queue,
 ) {
     let mut encoder =
@@ -373,9 +319,8 @@ fn render(
         });
         rpass.set_pipeline(&pipeline);
         rpass.set_bind_group(0, &bind_group, &[]);
-        for family in object_families {
-            family.apply_on_renderpass(&rpass, queue);
-        }
+        camera.apply_on_renderpass(&mut rpass, queue);
+        object_family.apply_on_renderpass(&mut rpass, queue);
     }
 
     queue.submit(Some(encoder.finish()));

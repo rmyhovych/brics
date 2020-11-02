@@ -1,8 +1,11 @@
-use std::mem::transmute;
-
 pub trait Uniform: Sized {
     fn as_ref(&self) -> &[u8] {
-        unsafe { return transmute(*self) }
+        unsafe {
+            std::slice::from_raw_parts(
+                (self as *const Self) as *const u8,
+                std::mem::size_of::<Self>(),
+            )
+        }
     }
 
     fn size() -> u64 {
@@ -11,9 +14,9 @@ pub trait Uniform: Sized {
 }
 
 pub trait UniformDescriptor<T: Uniform> {
-    fn get_bind_group_layout_entry() -> wgpu::BindGroupLayoutEntry {
+    fn get_bind_group_layout_entry(&self) -> wgpu::BindGroupLayoutEntry {
         wgpu::BindGroupLayoutEntry {
-            binding: 1,
+            binding: self.get_binding(),
             visibility: wgpu::ShaderStage::VERTEX,
             ty: wgpu::BindingType::UniformBuffer {
                 dynamic: false,
@@ -25,7 +28,7 @@ pub trait UniformDescriptor<T: Uniform> {
 
     fn get_bind_group_entry(&self) -> wgpu::BindGroupEntry {
         wgpu::BindGroupEntry {
-            binding: 1,
+            binding: self.get_binding(),
             resource: wgpu::BindingResource::Buffer(self.get_uniform_buffer().slice(..)),
         }
     }
@@ -38,11 +41,9 @@ pub trait UniformDescriptor<T: Uniform> {
         );
     }
 
+    fn get_binding(&self) -> u32;
+
     fn get_uniform_buffer(&self) -> &wgpu::Buffer;
 
-    fn apply_on_renderpass<'a>(
-        &'a self,
-        renderpass: &wgpu::RenderPass<'a>,
-        write_queue: &wgpu::Queue,
-    );
+    fn apply_on_renderpass(&mut self, renderpass: &mut wgpu::RenderPass, write_queue: &wgpu::Queue);
 }

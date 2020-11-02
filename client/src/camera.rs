@@ -1,4 +1,4 @@
-use cgmath::{self, Matrix4, Point3, Quaternion, Rotation, Vector3};
+use cgmath::{self, InnerSpace, Matrix4, Point3, Quaternion, Rotation, Vector3};
 use wgpu::{self, util::DeviceExt};
 
 use crate::uniform::{Uniform, UniformDescriptor};
@@ -23,7 +23,7 @@ impl CameraUniform {
 
 /*--------------------------------------------------------------------------------------------------*/
 
-struct Camera {
+pub struct Camera {
     uniform_buffer: wgpu::Buffer,
 
     position: Point3<f32>,
@@ -46,7 +46,7 @@ impl Camera {
                 mapped_at_creation: false,
             }),
             position: *position,
-            direction: *direction,
+            direction: direction.normalize(),
             aspect_ratio: aspect_ratio,
         }
     }
@@ -68,15 +68,15 @@ impl Camera {
 }
 
 impl UniformDescriptor<CameraUniform> for Camera {
+    fn get_binding(&self) -> u32 {
+        0
+    }
+
     fn get_uniform_buffer(&self) -> &wgpu::Buffer {
         &self.uniform_buffer
     }
 
-    fn apply_on_renderpass<'a>(
-        &'a self,
-        renderpass: &wgpu::RenderPass<'a>,
-        write_queue: &wgpu::Queue,
-    ) {
+    fn apply_on_renderpass(&mut self, _: &mut wgpu::RenderPass, write_queue: &wgpu::Queue) {
         let uniform_data = CameraUniform::new(&self.position, &self.direction, self.aspect_ratio);
         self.update_uniform(write_queue, &uniform_data);
     }

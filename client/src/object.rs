@@ -65,7 +65,7 @@ impl Object {
     fn get_uniform_data(&self) -> ObjectUniform {
         let mut model = Matrix4::from_nonuniform_scale(self.scale.x, self.scale.y, self.scale.z);
         model = Matrix4::from(self.rotation) * model;
-        model = Matrix4::from_translation(self.translation);
+        model = Matrix4::from_translation(self.translation) * model;
 
         ObjectUniform {
             model,
@@ -77,11 +77,11 @@ impl Object {
 /*--------------------------------------------------------------------------------------------------*/
 
 pub struct ObjectFamily {
+    uniform_buffer: wgpu::Buffer,
+
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
     n_indexes: u32,
-
-    model_uniform_buffer: wgpu::Buffer,
 
     objects: Vec<Object>,
 }
@@ -107,7 +107,7 @@ impl ObjectFamily {
 
             n_indexes: index_data.len() as _,
 
-            model_uniform_buffer: device.create_buffer(&wgpu::BufferDescriptor {
+            uniform_buffer: device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some("Model Uniform Buffer"),
                 size: ObjectUniform::size(),
                 usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
@@ -125,18 +125,22 @@ impl ObjectFamily {
 }
 
 impl UniformDescriptor<ObjectUniform> for ObjectFamily {
-    fn get_uniform_buffer(&self) -> &wgpu::Buffer {
-        &self.model_uniform_buffer
+    fn get_binding(&self) -> u32 {
+        1
     }
 
-    fn apply_on_renderpass<'a>(
-        &'a self,
-        renderpass: &wgpu::RenderPass<'a>,
+    fn get_uniform_buffer(&self) -> &wgpu::Buffer {
+        &self.uniform_buffer
+    }
+
+    fn apply_on_renderpass(
+        &mut self,
+        renderpass: &mut wgpu::RenderPass,
         write_queue: &wgpu::Queue,
     ) {
         renderpass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         renderpass.set_index_buffer(self.index_buffer.slice(..));
-        for obj in self.objects {
+        for obj in &self.objects {
             self.update_uniform(write_queue, &obj.get_uniform_data());
             renderpass.draw_indexed(0..self.n_indexes, 0, 0..1);
         }
