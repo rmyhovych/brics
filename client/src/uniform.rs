@@ -33,7 +33,7 @@ pub trait UniformDescriptor<T: Uniform> {
         }
     }
 
-    fn write_uniform(&mut self, write_queue: &wgpu::Queue, data: &T) {
+    fn write_uniform<'a>(&'a self, write_queue: &wgpu::Queue, data: &T) {
         write_queue.write_buffer(
             self.get_uniform_buffer(),
             0,
@@ -45,5 +45,9 @@ pub trait UniformDescriptor<T: Uniform> {
 
     fn get_uniform_buffer(&self) -> &wgpu::Buffer;
 
-    fn apply_on_renderpass(&mut self, renderpass: &mut wgpu::RenderPass, write_queue: &wgpu::Queue);
+    fn apply_on_renderpass<'a>(
+        &'a self,
+        renderpass: &mut wgpu::RenderPass<'a>,
+        write_queue: &wgpu::Queue,
+    );
 }

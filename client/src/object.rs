@@ -6,7 +6,8 @@ use crate::uniform::{Uniform, UniformDescriptor};
 
 /*--------------------------------------------------------------------------------------------------*/
 
-struct ObjectUniform {
+#[derive(Debug)]
+pub struct ObjectUniform {
     model: Matrix4<f32>,
     color: Vector3<f32>,
 }
@@ -64,7 +65,7 @@ impl Object {
 
     fn get_uniform_data(&self) -> ObjectUniform {
         let mut model = Matrix4::from_nonuniform_scale(self.scale.x, self.scale.y, self.scale.z);
-        model = Matrix4::from(self.rotation) * model;
+        //model = Matrix4::from(self.rotation) * model;
         model = Matrix4::from_translation(self.translation) * model;
 
         ObjectUniform {
@@ -133,15 +134,16 @@ impl UniformDescriptor<ObjectUniform> for ObjectFamily {
         &self.uniform_buffer
     }
 
-    fn apply_on_renderpass(
-        &mut self,
-        renderpass: &mut wgpu::RenderPass,
+    fn apply_on_renderpass<'a>(
+        &'a self,
+        renderpass: &mut wgpu::RenderPass<'a>,
         write_queue: &wgpu::Queue,
     ) {
         renderpass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         renderpass.set_index_buffer(self.index_buffer.slice(..));
-        for obj in &self.objects {
-            self.write_uniform(write_queue, &obj.get_uniform_data());
+        for obj in self.objects.iter() {
+            let obj_data = obj.get_uniform_data();
+            self.write_uniform(write_queue, &obj_data);
             renderpass.draw_indexed(0..self.n_indexes, 0, 0..1);
         }
     }

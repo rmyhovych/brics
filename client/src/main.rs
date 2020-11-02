@@ -11,7 +11,7 @@ mod uniform;
 use uniform::{Uniform, UniformDescriptor};
 
 mod camera;
-use camera::Camera;
+use camera::{Camera, CameraUniform};
 
 #[derive(Debug)]
 struct Setup {
@@ -120,17 +120,21 @@ fn run(setup: Setup) {
     let (vertex_data, index_data) = create_vertices();
 
     let mut object_family = ObjectFamily::new(&setup.device, &vertex_data, &index_data);
+    let obj = object_family.create_object();
+
+    obj.set_color(0.9, 0.1, 0.1);
+
     let mut camera = Camera::new(
         &setup.device,
         &cgmath::Point3 {
-            x: -1.0,
+            x: 0.0,
             y: 0.0,
-            z: 0.0,
+            z: -1.5,
         },
         &cgmath::Vector3 {
-            x: 1.0,
+            x: 0.0,
             y: 0.0,
-            z: 0.0,
+            z: 1.0,
         },
         1.0,
     );
@@ -274,13 +278,14 @@ fn run(setup: Setup) {
                     }
                 };
 
+                camera.rotate(0.01, 0.0);
                 render(
                     &frame,
                     &device,
                     &pipeline,
                     &bind_group,
-                    &mut camera,
-                    &mut object_family,
+                    &camera,
+                    &object_family,
                     &queue,
                 );
             }
@@ -294,8 +299,8 @@ fn render(
     device: &wgpu::Device,
     pipeline: &wgpu::RenderPipeline,
     bind_group: &wgpu::BindGroup,
-    camera: &mut Camera,
-    object_family: &mut ObjectFamily,
+    camera: &Camera,
+    object_family: &ObjectFamily,
     queue: &wgpu::Queue,
 ) {
     let mut encoder =

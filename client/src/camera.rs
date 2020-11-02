@@ -5,7 +5,8 @@ use crate::uniform::{Uniform, UniformDescriptor};
 
 /*--------------------------------------------------------------------------------------------------*/
 
-struct CameraUniform {
+#[derive(Debug)]
+pub struct CameraUniform {
     projection: Matrix4<f32>,
     view: Matrix4<f32>,
 }
@@ -15,7 +16,7 @@ impl Uniform for CameraUniform {}
 impl CameraUniform {
     fn new(position: &Point3<f32>, direction: &Vector3<f32>, aspect_ratio: f32) -> CameraUniform {
         CameraUniform {
-            projection: cgmath::perspective(cgmath::Deg(90.0), aspect_ratio, 0.01, 1000.0),
+            projection: cgmath::perspective(cgmath::Deg(90.0), aspect_ratio, 0.01, 100.0),
             view: cgmath::Matrix4::look_at_dir(*position, *direction, Vector3::unit_y()),
         }
     }
@@ -76,7 +77,7 @@ impl UniformDescriptor<CameraUniform> for Camera {
         &self.uniform_buffer
     }
 
-    fn apply_on_renderpass(&mut self, _: &mut wgpu::RenderPass, write_queue: &wgpu::Queue) {
+    fn apply_on_renderpass<'a>(&'a self, _: &mut wgpu::RenderPass<'a>, write_queue: &wgpu::Queue) {
         let uniform_data = CameraUniform::new(&self.position, &self.direction, self.aspect_ratio);
         self.write_uniform(write_queue, &uniform_data);
     }
