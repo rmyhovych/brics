@@ -1,5 +1,5 @@
 use cgmath::{self, InnerSpace, Matrix4, Point3, Quaternion, Rotation, Vector3};
-use wgpu::{self, util::DeviceExt};
+use wgpu::{self};
 
 use crate::uniform::{Uniform, UniformDescriptor};
 
@@ -16,7 +16,7 @@ impl Uniform for CameraUniform {}
 impl CameraUniform {
     fn new(position: &Point3<f32>, direction: &Vector3<f32>, aspect_ratio: f32) -> CameraUniform {
         CameraUniform {
-            projection: cgmath::perspective(cgmath::Deg(90.0), aspect_ratio, 0.01, 100.0),
+            projection: cgmath::perspective(cgmath::Deg(60.0), aspect_ratio, 0.01, 100.0),
             view: cgmath::Matrix4::look_at_dir(*position, *direction, Vector3::unit_y()),
         }
     }

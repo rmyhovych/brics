@@ -5,13 +5,13 @@ mod shader_compiler;
 use shader_compiler::ShaderCompiler;
 
 mod object;
-use object::{Object, ObjectFamily};
+use object::ObjectFamily;
 
 mod uniform;
-use uniform::{Uniform, UniformDescriptor};
+use uniform::UniformDescriptor;
 
 mod camera;
-use camera::{Camera, CameraUniform};
+use camera::Camera;
 
 #[derive(Debug)]
 struct Setup {
@@ -24,9 +24,45 @@ struct Setup {
     queue: wgpu::Queue,
 }
 
-fn create_vertices() -> (Vec<[f32; 3]>, Vec<u16>) {
-    let vertex_data = [[-1.0, 1.0, 0.0], [1.0, 1.0, 0.0], [0.0, -1.0, 0.0]].to_vec();
-    let index_data = [0, 1, 2].to_vec();
+fn create_vertices() -> (Vec<[f32; 6]>, Vec<u16>) {
+    let vertex_data = [
+        // Back face
+        [-1.0, -1.0, 1.0, 0.0, 0.0, 1.0],
+        [1.0, -1.0, 1.0, 0.0, 0.0, 1.0],
+        [1.0, 1.0, 1.0, 0.0, 0.0, 1.0],
+        [-1.0, 1.0, 1.0, 0.0, 0.0, 1.0],
+        // Front face
+        [-1.0, -1.0, -1.0, 0.0, 0.0, -1.0],
+        [-1.0, 1.0, -1.0, 0.0, 0.0, -1.0],
+        [1.0, 1.0, -1.0, 0.0, 0.0, -1.0],
+        [1.0, -1.0, -1.0, 0.0, 0.0, -1.0],
+        // Bottom face
+        [-1.0, 1.0, -1.0, 0.0, 1.0, 0.0],
+        [-1.0, 1.0, 1.0, 0.0, 1.0, 0.0],
+        [1.0, 1.0, 1.0, 0.0, 1.0, 0.0],
+        [1.0, 1.0, -1.0, 0.0, 1.0, 0.0],
+        // Top face
+        [-1.0, -1.0, -1.0, 0.0, -1.0, 0.0],
+        [1.0, -1.0, -1.0, 0.0, -1.0, 0.0],
+        [1.0, -1.0, 1.0, 0.0, -1.0, 0.0],
+        [-1.0, -1.0, 1.0, 0.0, -1.0, 0.0],
+        // Right face
+        [1.0, -1.0, -1.0, 1.0, 0.0, 0.0],
+        [1.0, 1.0, -1.0, 1.0, 0.0, 0.0],
+        [1.0, 1.0, 1.0, 1.0, 0.0, 0.0],
+        [1.0, -1.0, 1.0, 1.0, 0.0, 0.0],
+        // Left face
+        [-1.0, -1.0, -1.0, -1.0, 0.0, 0.0],
+        [-1.0, -1.0, 1.0, -1.0, 0.0, 0.0],
+        [-1.0, 1.0, 1.0, -1.0, 0.0, 0.0],
+        [-1.0, 1.0, -1.0, -1.0, 0.0, 0.0],
+    ]
+    .to_vec();
+    let index_data = [
+        0, 1, 3, 3, 1, 2, 4, 5, 6, 6, 7, 4, 8, 9, 10, 10, 11, 8, 12, 13, 14, 14, 15, 12, 16, 17,
+        18, 18, 19, 16, 20, 21, 22, 22, 23, 20,
+    ]
+    .to_vec();
 
     return (vertex_data, index_data);
 }
@@ -35,8 +71,8 @@ fn create_window(event_loop: &winit::event_loop::EventLoop<()>) -> winit::window
     return winit::window::WindowBuilder::new()
         .with_title("rustgame")
         .with_inner_size(winit::dpi::Size::from(winit::dpi::PhysicalSize {
-            width: 500,
-            height: 500,
+            width: 200,
+            height: 200,
         }))
         .build(&event_loop)
         .unwrap();
@@ -97,14 +133,14 @@ async fn get_setup() -> Setup {
 }
 
 fn run(setup: Setup) {
-    let (mut pool, spawner) = {
+    let (mut pool, _) = {
         let local_pool = futures::executor::LocalPool::new();
         let spawner = local_pool.spawner();
         (local_pool, spawner)
     };
 
     let window_size: winit::dpi::PhysicalSize<u32> = setup.window.inner_size();
-    let mut swap_chain_descriptor = wgpu::SwapChainDescriptor {
+    let swap_chain_descriptor = wgpu::SwapChainDescriptor {
         usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
         format: wgpu::TextureFormat::Bgra8UnormSrgb,
         width: window_size.width,
@@ -120,16 +156,14 @@ fn run(setup: Setup) {
     let (vertex_data, index_data) = create_vertices();
 
     let mut object_family = ObjectFamily::new(&setup.device, &vertex_data, &index_data);
-    let obj = object_family.create_object();
-
-    obj.set_color(0.9, 0.1, 0.1);
+    object_family.create_object().set_scale(0.5, 0.5, 0.5);
 
     let mut camera = Camera::new(
         &setup.device,
         &cgmath::Point3 {
             x: 0.0,
             y: 0.0,
-            z: -1.5,
+            z: -2.5,
         },
         &cgmath::Vector3 {
             x: 0.0,
@@ -192,7 +226,7 @@ fn run(setup: Setup) {
             }),
             rasterization_state: Some(wgpu::RasterizationStateDescriptor {
                 front_face: wgpu::FrontFace::Ccw,
-                cull_mode: wgpu::CullMode::None,
+                cull_mode: wgpu::CullMode::Back,
                 ..Default::default()
             }),
             primitive_topology: wgpu::PrimitiveTopology::TriangleList,
@@ -206,13 +240,20 @@ fn run(setup: Setup) {
             vertex_state: wgpu::VertexStateDescriptor {
                 index_format: wgpu::IndexFormat::Uint16,
                 vertex_buffers: &[wgpu::VertexBufferDescriptor {
-                    stride: std::mem::size_of::<[f32; 3]>() as u64, // TODO: Separate trait
+                    stride: std::mem::size_of::<[f32; 6]>() as u64, // TODO: Separate trait
                     step_mode: wgpu::InputStepMode::Vertex,
-                    attributes: &[wgpu::VertexAttributeDescriptor {
-                        format: wgpu::VertexFormat::Float3,
-                        offset: 0,
-                        shader_location: 0,
-                    }],
+                    attributes: &[
+                        wgpu::VertexAttributeDescriptor {
+                            format: wgpu::VertexFormat::Float3,
+                            offset: 0,
+                            shader_location: 0,
+                        },
+                        wgpu::VertexAttributeDescriptor {
+                            format: wgpu::VertexFormat::Float3,
+                            offset: 12,
+                            shader_location: 1,
+                        },
+                    ],
                 }],
             },
             sample_count: 1,
@@ -234,7 +275,8 @@ fn run(setup: Setup) {
     let queue = setup.queue;
 
     event_loop.run(move |event, _, control_flow| {
-        let _ = (&instance, &adapter, &swap_chain); // force ownership by the closure
+        let _ = (&instance, &adapter, &swap_chain, &object_family); // force ownership by the closure
+
         *control_flow = if cfg!(feature = "metal_auto_captyre") {
             winit::event_loop::ControlFlow::Exit
         } else {
@@ -278,7 +320,15 @@ fn run(setup: Setup) {
                     }
                 };
 
-                camera.rotate(0.01, 0.0);
+                //camera.rotate(0.01, 0.0);
+                object_family.get(0).rotate(
+                    &cgmath::Vector3 {
+                        x: 1.0,
+                        y: 1.0,
+                        z: 0.0,
+                    },
+                    &cgmath::Deg(1.0),
+                );
                 render(
                     &frame,
                     &device,

@@ -1,13 +1,13 @@
-use bytemuck;
-use cgmath::{Matrix4, Quaternion, Vector3};
-use wgpu::{self, util::DeviceExt};
-
 use crate::uniform::{Uniform, UniformDescriptor};
+use bytemuck;
+use cgmath::{Matrix4, Quaternion, Vector3, InnerSpace};
+use wgpu::{self, util::DeviceExt};
 
 /*--------------------------------------------------------------------------------------------------*/
 
 #[derive(Debug)]
 pub struct ObjectUniform {
+    rotation: Matrix4<f32>,
     model: Matrix4<f32>,
     color: Vector3<f32>,
 }
@@ -32,7 +32,7 @@ impl Object {
                 y: 0.0,
                 z: 0.0,
             },
-            rotation: Quaternion::from_sv(0.0, Vector3::unit_y()),
+            rotation: Quaternion::new(1.0, 0.0, 0.0, 0.0),
             scale: Vector3 {
                 x: 1.0,
                 y: 1.0,
@@ -58,17 +58,27 @@ impl Object {
         self.translation += Vector3 { x, y, z };
     }
 
-    pub fn rotate(&mut self, axis: &Vector3<f32>, angle: f32) {
-        let delta_rotation = Quaternion::from_sv(angle, *axis);
-        self.rotation = delta_rotation * self.rotation;
+    pub fn rotate(&mut self, axis: &Vector3<f32>, angle: &cgmath::Deg<f32>) {
+        let sin_angle_half = cgmath::Angle::sin(angle / 2.0);
+        let cos_angle_half = cgmath::Angle::cos(angle / 2.0);
+        let delta_rotation = Quaternion::new(
+            cos_angle_half,
+            sin_angle_half * axis.x,
+            sin_angle_half * axis.y,
+            sin_angle_half * axis.z,
+        );
+        self.rotation = (self.rotation * delta_rotation).normalize();
     }
 
     fn get_uniform_data(&self) -> ObjectUniform {
         let mut model = Matrix4::from_nonuniform_scale(self.scale.x, self.scale.y, self.scale.z);
-        //model = Matrix4::from(self.rotation) * model;
+
+        let rotation = Matrix4::from(self.rotation);
+        model = rotation * model;
         model = Matrix4::from_translation(self.translation) * model;
 
         ObjectUniform {
+            rotation,
             model,
             color: self.color,
         }
@@ -90,7 +100,7 @@ pub struct ObjectFamily {
 impl ObjectFamily {
     pub fn new(
         device: &wgpu::Device,
-        vertex_data: &Vec<[f32; 3]>,
+        vertex_data: &Vec<[f32; 6]>,
         index_data: &Vec<u16>,
     ) -> ObjectFamily {
         ObjectFamily {
@@ -117,6 +127,10 @@ impl ObjectFamily {
 
             objects: Vec::new(),
         }
+    }
+
+    pub fn get(&mut self, index: usize) -> &mut Object {
+        self.objects.get_mut(index).unwrap()
     }
 
     pub fn create_object(&mut self) -> &mut Object {
