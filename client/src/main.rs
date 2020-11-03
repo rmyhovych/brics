@@ -71,8 +71,8 @@ fn create_window(event_loop: &winit::event_loop::EventLoop<()>) -> winit::window
     return winit::window::WindowBuilder::new()
         .with_title("rustgame")
         .with_inner_size(winit::dpi::Size::from(winit::dpi::PhysicalSize {
-            width: 500,
-            height: 500,
+            width: 1000,
+            height: 800,
         }))
         .build(&event_loop)
         .unwrap();
@@ -155,10 +155,20 @@ fn run(setup: Setup) {
 
     let (vertex_data, index_data) = create_vertices();
 
-    let mut object_family = ObjectFamily::new(&setup.device, &vertex_data, &index_data, 100);
-    object_family.get(0).set_scale(0.5, 0.5, 0.5);
-    object_family.get(1).set_scale(1.0, 0.5, 0.5);
+    let mut object_family = ObjectFamily::new(&setup.device, &vertex_data, &index_data, 2);
+    object_family.get(0).set_scale(0.1, 0.1, 0.1);
+    object_family.get(1).set_scale(0.5, 0.5, 0.5);
+    object_family.get(1).translate(0.3, 0.5, 1.0);
+    object_family.get(1).rotate(
+        &cgmath::Vector3 {
+            x: 2.0,
+            y: 1.0,
+            z: 1.0,
+        },
+        &cgmath::Deg(32.0),
+    );
 
+    let window_size: winit::dpi::PhysicalSize<u32> = setup.window.inner_size();
     let mut camera = Camera::new(
         &setup.device,
         &cgmath::Point3 {
@@ -171,7 +181,7 @@ fn run(setup: Setup) {
             y: 0.0,
             z: 1.0,
         },
-        1.0,
+        window_size.width as f32 / window_size.height as f32,
     );
 
     let bind_group_layout =
@@ -330,6 +340,26 @@ fn run(setup: Setup) {
                 | winit::event::WindowEvent::CloseRequested => {
                     *control_flow = winit::event_loop::ControlFlow::Exit;
                 }
+                winit::event::WindowEvent::KeyboardInput {
+                    input:
+                        winit::event::KeyboardInput {
+                            virtual_keycode: Some(winit::event::VirtualKeyCode::A),
+                            state: winit::event::ElementState::Pressed,
+                            ..
+                        },
+                    ..
+                } => camera.rotate(0.1, 0.0),
+
+                winit::event::WindowEvent::KeyboardInput {
+                    input:
+                        winit::event::KeyboardInput {
+                            virtual_keycode: Some(winit::event::VirtualKeyCode::D),
+                            state: winit::event::ElementState::Pressed,
+                            ..
+                        },
+                    ..
+                } => camera.rotate(-0.1, 0.0),
+
                 _ => {}
             },
             winit::event::Event::RedrawRequested(_) => {
@@ -351,11 +381,11 @@ fn run(setup: Setup) {
                 //camera.rotate(0.01, 0.0);
                 object_family.get(0).rotate(
                     &cgmath::Vector3 {
-                        x: 0.0,
+                        x: 1.0,
                         y: 1.0,
                         z: 0.0,
                     },
-                    &cgmath::Deg(0.1),
+                    &cgmath::Deg(0.5),
                 );
                 render(
                     &frame,
