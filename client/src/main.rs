@@ -155,7 +155,7 @@ fn run(setup: Setup) {
 
     let (vertex_data, index_data) = create_vertices();
 
-    let mut object_family = ObjectFamily::new(&setup.device, &vertex_data, &index_data, 2);
+    let mut object_family = ObjectFamily::new(&setup.device, &vertex_data, &index_data, 100);
     object_family.get(0).set_scale(0.5, 0.5, 0.5);
     object_family.get(1).set_scale(1.0, 0.5, 0.5);
 
