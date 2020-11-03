@@ -71,8 +71,8 @@ fn create_window(event_loop: &winit::event_loop::EventLoop<()>) -> winit::window
     return winit::window::WindowBuilder::new()
         .with_title("rustgame")
         .with_inner_size(winit::dpi::Size::from(winit::dpi::PhysicalSize {
-            width: 200,
-            height: 200,
+            width: 500,
+            height: 500,
         }))
         .build(&event_loop)
         .unwrap();
@@ -155,8 +155,9 @@ fn run(setup: Setup) {
 
     let (vertex_data, index_data) = create_vertices();
 
-    let mut object_family = ObjectFamily::new(&setup.device, &vertex_data, &index_data);
-    object_family.create_object().set_scale(0.5, 0.5, 0.5);
+    let mut object_family = ObjectFamily::new(&setup.device, &vertex_data, &index_data, 2);
+    object_family.get(0).set_scale(0.5, 0.5, 0.5);
+    object_family.get(1).set_scale(1.0, 0.5, 0.5);
 
     let mut camera = Camera::new(
         &setup.device,
@@ -236,7 +237,12 @@ fn run(setup: Setup) {
                 alpha_blend: wgpu::BlendDescriptor::REPLACE,
                 write_mask: wgpu::ColorWrite::ALL,
             }],
-            depth_stencil_state: None,
+            depth_stencil_state: Some(wgpu::DepthStencilStateDescriptor {
+                format: wgpu::TextureFormat::Depth32Float,
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::Less,
+                stencil: wgpu::StencilStateDescriptor::default(),
+            }),
             vertex_state: wgpu::VertexStateDescriptor {
                 index_format: wgpu::IndexFormat::Uint16,
                 vertex_buffers: &[wgpu::VertexBufferDescriptor {
@@ -262,6 +268,22 @@ fn run(setup: Setup) {
         });
     println!("Created Pipeline : {:?}", pipeline);
 
+    let depth_texture = setup.device.create_texture(&wgpu::TextureDescriptor {
+        size: wgpu::Extent3d {
+            width: window_size.width,
+            height: window_size.height,
+            depth: 1,
+        },
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::Depth32Float,
+        usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+        label: None,
+    });
+
+    let depth_texture_view = depth_texture.create_view(&wgpu::TextureViewDescriptor::default());
+
     let mut last_update_inst = std::time::Instant::now();
 
     println!("Entering render loop...");
@@ -274,6 +296,7 @@ fn run(setup: Setup) {
     let device = setup.device;
     let queue = setup.queue;
 
+    let mut previous_frame = std::time::Instant::now();
     event_loop.run(move |event, _, control_flow| {
         let _ = (&instance, &adapter, &swap_chain, &object_family); // force ownership by the closure
 
@@ -310,6 +333,11 @@ fn run(setup: Setup) {
                 _ => {}
             },
             winit::event::Event::RedrawRequested(_) => {
+                let current_frame = std::time::Instant::now();
+                let time_passed = current_frame - previous_frame;
+                println!("{}", time_passed.as_millis());
+                previous_frame = current_frame;
+
                 let frame = match swap_chain.get_current_frame() {
                     Ok(frame) => frame,
                     Err(_) => {
@@ -323,16 +351,17 @@ fn run(setup: Setup) {
                 //camera.rotate(0.01, 0.0);
                 object_family.get(0).rotate(
                     &cgmath::Vector3 {
-                        x: 1.0,
+                        x: 0.0,
                         y: 1.0,
                         z: 0.0,
                     },
-                    &cgmath::Deg(1.0),
+                    &cgmath::Deg(0.1),
                 );
                 render(
                     &frame,
                     &device,
                     &pipeline,
+                    &depth_texture_view,
                     &bind_group,
                     &camera,
                     &object_family,
@@ -348,6 +377,7 @@ fn render(
     frame: &wgpu::SwapChainFrame,
     device: &wgpu::Device,
     pipeline: &wgpu::RenderPipeline,
+    depth_texture_view: &wgpu::TextureView,
     bind_group: &wgpu::BindGroup,
     camera: &Camera,
     object_family: &ObjectFamily,
@@ -370,7 +400,14 @@ fn render(
                     store: true,
                 },
             }],
-            depth_stencil_attachment: None,
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
+                attachment: depth_texture_view,
+                depth_ops: Some(wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(1.0),
+                    store: false,
+                }),
+                stencil_ops: None,
+            }),
         });
         rpass.set_pipeline(&pipeline);
         rpass.set_bind_group(0, &bind_group, &[]);

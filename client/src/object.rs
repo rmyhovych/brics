@@ -1,6 +1,6 @@
 use crate::uniform::{Uniform, UniformDescriptor};
 use bytemuck;
-use cgmath::{Matrix4, Quaternion, Vector3, InnerSpace};
+use cgmath::{InnerSpace, Matrix4, Quaternion, Vector3};
 use wgpu::{self, util::DeviceExt};
 
 /*--------------------------------------------------------------------------------------------------*/
@@ -10,6 +10,7 @@ pub struct ObjectUniform {
     rotation: Matrix4<f32>,
     model: Matrix4<f32>,
     color: Vector3<f32>,
+    _padding: f32, // needed for an alignment with glsl
 }
 
 impl Uniform for ObjectUniform {}
@@ -81,6 +82,7 @@ impl Object {
             rotation,
             model,
             color: self.color,
+            _padding: 0.0
         }
     }
 }
@@ -102,6 +104,7 @@ impl ObjectFamily {
         device: &wgpu::Device,
         vertex_data: &Vec<[f32; 6]>,
         index_data: &Vec<u16>,
+        n_objects: u64,
     ) -> ObjectFamily {
         ObjectFamily {
             vertex_buffer: device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -119,13 +122,15 @@ impl ObjectFamily {
             n_indexes: index_data.len() as _,
 
             uniform_buffer: device.create_buffer(&wgpu::BufferDescriptor {
-                label: Some("Model Uniform Buffer"),
-                size: ObjectUniform::size(),
-                usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+                label: Some("Instance Uniform Buffer"),
+                size: n_objects * ObjectUniform::size(),
+                usage: wgpu::BufferUsage::STORAGE | wgpu::BufferUsage::COPY_DST,
                 mapped_at_creation: false,
             }),
 
-            objects: Vec::new(),
+            objects: (0..n_objects)
+                .map(move |_| Object::new())
+                .collect::<Vec<Object>>(),
         }
     }
 
@@ -144,6 +149,19 @@ impl UniformDescriptor<ObjectUniform> for ObjectFamily {
         1
     }
 
+    fn get_bind_group_layout_entry(&self) -> wgpu::BindGroupLayoutEntry {
+        wgpu::BindGroupLayoutEntry {
+            binding: self.get_binding(),
+            visibility: wgpu::ShaderStage::VERTEX,
+            ty: wgpu::BindingType::StorageBuffer {
+                dynamic: false,
+                readonly: true,
+                min_binding_size: None,
+            },
+            count: None,
+        }
+    }
+
     fn get_uniform_buffer(&self) -> &wgpu::Buffer {
         &self.uniform_buffer
     }
@@ -155,10 +173,20 @@ impl UniformDescriptor<ObjectUniform> for ObjectFamily {
     ) {
         renderpass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         renderpass.set_index_buffer(self.index_buffer.slice(..));
-        for obj in self.objects.iter() {
-            let obj_data = obj.get_uniform_data();
-            self.write_uniform(write_queue, &obj_data);
-            renderpass.draw_indexed(0..self.n_indexes, 0, 0..1);
-        }
+
+        let instance_buffer_data: Vec<ObjectUniform> =
+            self.objects.iter().map(Object::get_uniform_data).collect();
+
+        println!("Data {}", instance_buffer_data.len());
+
+        let raw_data = unsafe {
+            std::slice::from_raw_parts(
+                instance_buffer_data.as_ptr() as *const u8,
+                instance_buffer_data.len() * std::mem::size_of::<ObjectUniform>(),
+            )
+        };
+
+        write_queue.write_buffer(self.get_uniform_buffer(), 0, raw_data);
+        renderpass.draw_indexed(0..self.n_indexes, 0, 0..instance_buffer_data.len() as _);
     }
 }

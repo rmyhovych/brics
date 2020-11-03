@@ -11,14 +11,21 @@ layout(set = 0, binding = 0) uniform Camera {
     mat4 m_in_View;
 };
 
-layout(set = 0, binding = 1) uniform Object {
+struct ObjectData {
     mat4 m_in_Rotation;
     mat4 m_in_Model;
     vec3 v_in_Color;
 };
 
+layout(set = 0, binding = 1) buffer Object {
+    ObjectData s_objects[];
+};
+
 void main() {
-    v_out_Color = v_in_Color;
-    v_out_Norm = vec3(m_in_Rotation * vec4(a_Norm, 1.0));
-    gl_Position = m_in_Projection * m_in_View * m_in_Model * vec4(a_Pos, 1.0);
+    ObjectData object = s_objects[gl_InstanceIndex];
+
+    v_out_Color = object.v_in_Color;
+    v_out_Norm = vec3(object.m_in_Rotation * vec4(a_Norm, 1.0));
+
+    gl_Position = m_in_Projection * m_in_View * object.m_in_Model * vec4(a_Pos, 1.0);
 }
