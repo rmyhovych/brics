@@ -320,7 +320,7 @@ fn run(setup: Setup) {
 
         match event {
             winit::event::Event::MainEventsCleared => {
-                if last_update_inst.elapsed() > std::time::Duration::from_millis(20) {
+                if last_update_inst.elapsed() > std::time::Duration::from_millis(10) {
                     window.request_redraw();
                     last_update_inst = std::time::Instant::now();
                 }
