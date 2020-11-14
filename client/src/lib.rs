@@ -1,9 +1,6 @@
 use cgmath;
 use wgpu;
 
-mod shader_compiler;
-use shader_compiler::ShaderCompiler;
-
 mod object;
 use object::ObjectFamily;
 
@@ -70,10 +67,6 @@ fn create_vertices() -> (Vec<[f32; 6]>, Vec<u16>) {
 fn create_window(event_loop: &winit::event_loop::EventLoop<()>) -> winit::window::Window {
     return winit::window::WindowBuilder::new()
         .with_title("rustgame")
-        .with_inner_size(winit::dpi::Size::from(winit::dpi::PhysicalSize {
-            width: 1000,
-            height: 800,
-        }))
         .build(&event_loop)
         .unwrap();
 }
@@ -140,9 +133,10 @@ fn run(setup: Setup) {
     };
 
     let window_size: winit::dpi::PhysicalSize<u32> = setup.window.inner_size();
+    println!("WINDOW SIZE {:?}", window_size);
     let swap_chain_descriptor = wgpu::SwapChainDescriptor {
         usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
-        format: wgpu::TextureFormat::Bgra8UnormSrgb,
+        format: wgpu::TextureFormat::Rgba8Unorm,
         width: window_size.width,
         height: window_size.height,
         present_mode: wgpu::PresentMode::Mailbox,
@@ -160,28 +154,27 @@ fn run(setup: Setup) {
     object_family.get(1).set_scale(0.5, 0.5, 0.5);
     object_family.get(1).translate(0.3, 0.5, 1.0);
     object_family.get(1).rotate(
-        &cgmath::Vector3 {
+        cgmath::Vector3 {
             x: 2.0,
             y: 1.0,
             z: 1.0,
         },
-        &cgmath::Deg(32.0),
+        cgmath::Rad(0.2),
     );
 
-    let window_size: winit::dpi::PhysicalSize<u32> = setup.window.inner_size();
-    let mut camera = Camera::new(
-        &setup.device,
+    let mut camera = Camera::look_at(
         &cgmath::Point3 {
             x: 0.0,
             y: 0.0,
             z: -2.5,
         },
-        &cgmath::Vector3 {
-            x: 0.0,
-            y: 0.0,
+        &cgmath::Point3 {
+            x: 0.3,
+            y: 0.5,
             z: 1.0,
         },
         window_size.width as f32 / window_size.height as f32,
+        &setup.device,
     );
 
     let bind_group_layout =
@@ -212,15 +205,12 @@ fn run(setup: Setup) {
         ],
     });
 
-    let mut sc = ShaderCompiler::new();
-    let vertex_spiv = sc.compile_vertex("shaders/shader.vert");
-    let fragment_spiv = sc.compile_fragment("shaders/shader.frag");
     let vertex_module = setup
         .device
-        .create_shader_module(vertex_spiv.get_module_source());
+        .create_shader_module(wgpu::include_spirv!("shaders/shader.vert.spirv"));
     let fragment_module = setup
         .device
-        .create_shader_module(fragment_spiv.get_module_source());
+        .create_shader_module(wgpu::include_spirv!("shaders/shader.frag.spirv"));
 
     let pipeline = setup
         .device
@@ -298,6 +288,11 @@ fn run(setup: Setup) {
 
     println!("Entering render loop...");
 
+    std::thread::spawn(|| loop {
+        std::thread::sleep(std::time::Duration::from_millis(16));
+        request_redraw();
+    });
+
     let instance = setup.instance;
     let adapter = setup.adapter;
     let event_loop = setup.event_loop;
@@ -306,11 +301,12 @@ fn run(setup: Setup) {
     let device = setup.device;
     let queue = setup.queue;
 
-    let mut previous_frame = std::time::Instant::now();
+    let multiplier = 0.001;
+    let mut finger_position = winit::dpi::PhysicalPosition { x: 0.0, y: 0.0 };
     event_loop.run(move |event, _, control_flow| {
         let _ = (&instance, &adapter, &swap_chain, &object_family); // force ownership by the closure
 
-        *control_flow = if cfg!(feature = "metal_auto_captyre") {
+        *control_flow = if cfg!(feature = "metal-auto-capture") {
             winit::event_loop::ControlFlow::Exit
         } else {
             winit::event_loop::ControlFlow::WaitUntil(
@@ -319,55 +315,29 @@ fn run(setup: Setup) {
         };
 
         match event {
-            winit::event::Event::MainEventsCleared => {
-                if last_update_inst.elapsed() > std::time::Duration::from_millis(10) {
-                    window.request_redraw();
-                    last_update_inst = std::time::Instant::now();
-                }
-
-                pool.run_until_stalled();
-            }
             winit::event::Event::WindowEvent { event, .. } => match event {
-                winit::event::WindowEvent::KeyboardInput {
-                    input:
-                        winit::event::KeyboardInput {
-                            virtual_keycode: Some(winit::event::VirtualKeyCode::Escape),
-                            state: winit::event::ElementState::Pressed,
-                            ..
-                        },
-                    ..
-                }
-                | winit::event::WindowEvent::CloseRequested => {
+                winit::event::WindowEvent::CloseRequested => {
                     *control_flow = winit::event_loop::ControlFlow::Exit;
                 }
-                winit::event::WindowEvent::KeyboardInput {
-                    input:
-                        winit::event::KeyboardInput {
-                            virtual_keycode: Some(winit::event::VirtualKeyCode::A),
-                            state: winit::event::ElementState::Pressed,
-                            ..
-                        },
-                    ..
-                } => camera.rotate(0.1, 0.0),
+                winit::event::WindowEvent::Touch(touch) => match touch.phase {
+                    winit::event::TouchPhase::Started => finger_position = touch.location,
+                    winit::event::TouchPhase::Moved => {
+                        let new_position = touch.location;
+                        let dx = new_position.x - finger_position.x;
+                        let dy = new_position.y - finger_position.y;
+                        println!("TOUCH[{}, {}]", dx, dy);
+                        camera.rotate_around_center(
+                            -3.0 * multiplier * dx as f32,
+                            -multiplier * dy as f32,
+                        );
 
-                winit::event::WindowEvent::KeyboardInput {
-                    input:
-                        winit::event::KeyboardInput {
-                            virtual_keycode: Some(winit::event::VirtualKeyCode::D),
-                            state: winit::event::ElementState::Pressed,
-                            ..
-                        },
-                    ..
-                } => camera.rotate(-0.1, 0.0),
-
+                        finger_position = new_position
+                    }
+                    _ => (),
+                },
                 _ => {}
             },
             winit::event::Event::RedrawRequested(_) => {
-                let current_frame = std::time::Instant::now();
-                let time_passed = current_frame - previous_frame;
-                println!("{}", time_passed.as_millis());
-                previous_frame = current_frame;
-
                 let frame = match swap_chain.get_current_frame() {
                     Ok(frame) => frame,
                     Err(_) => {
@@ -380,12 +350,12 @@ fn run(setup: Setup) {
 
                 //camera.rotate(0.01, 0.0);
                 object_family.get(0).rotate(
-                    &cgmath::Vector3 {
+                    cgmath::Vector3 {
                         x: 1.0,
                         y: 1.0,
                         z: 0.0,
                     },
-                    &cgmath::Deg(0.5),
+                    cgmath::Rad(0.01),
                 );
                 render(
                     &frame,
@@ -448,8 +418,36 @@ fn render(
     queue.submit(Some(encoder.finish()));
 }
 
-fn main() {
+#[cfg_attr(target_os = "android", ndk_glue::main(backtrace = "on"))]
+pub fn main() {
+    wait_for_window();
     println!("Hello, world!");
     let setup = futures::executor::block_on(get_setup());
     run(setup);
+}
+
+pub fn request_redraw() {
+    match ndk_glue::native_window().as_ref() {
+        Some(native_window) => {
+            let a_native_window: *mut ndk_sys::ANativeWindow = native_window.ptr().as_ptr();
+            let a_native_activity: *mut ndk_sys::ANativeActivity =
+                ndk_glue::native_activity().ptr().as_ptr();
+            unsafe {
+                match (*(*a_native_activity).callbacks).onNativeWindowRedrawNeeded {
+                    Some(callback) => callback(a_native_activity, a_native_window),
+                    None => (),
+                };
+            };
+        }
+        None => (),
+    }
+}
+
+fn wait_for_window() {
+    loop {
+        let native_window = match ndk_glue::native_window().as_ref() {
+            Some(_) => break,
+            None => continue,
+        };
+    }
 }

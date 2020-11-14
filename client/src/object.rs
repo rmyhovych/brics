@@ -1,6 +1,6 @@
 use crate::uniform::{Uniform, UniformDescriptor};
 use bytemuck;
-use cgmath::{InnerSpace, Matrix4, Quaternion, Vector3};
+use cgmath::{InnerSpace, Matrix4, Quaternion, Rotation3, Vector3};
 use wgpu::{self, util::DeviceExt};
 
 /*--------------------------------------------------------------------------------------------------*/
@@ -59,15 +59,8 @@ impl Object {
         self.translation += Vector3 { x, y, z };
     }
 
-    pub fn rotate(&mut self, axis: &Vector3<f32>, angle: &cgmath::Deg<f32>) {
-        let sin_angle_half = cgmath::Angle::sin(angle / 2.0);
-        let cos_angle_half = cgmath::Angle::cos(angle / 2.0);
-        let delta_rotation = Quaternion::new(
-            cos_angle_half,
-            sin_angle_half * axis.x,
-            sin_angle_half * axis.y,
-            sin_angle_half * axis.z,
-        );
+    pub fn rotate(&mut self, axis: Vector3<f32>, angle: cgmath::Rad<f32>) {
+        let delta_rotation = Quaternion::from_axis_angle(axis, angle);
         self.rotation = (self.rotation * delta_rotation).normalize();
     }
 
@@ -176,8 +169,6 @@ impl UniformDescriptor<ObjectUniform> for ObjectFamily {
 
         let instance_buffer_data: Vec<ObjectUniform> =
             self.objects.iter().map(Object::get_uniform_data).collect();
-
-        println!("Data {}", instance_buffer_data.len());
 
         let raw_data = unsafe {
             std::slice::from_raw_parts(
