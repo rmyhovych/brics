@@ -1,14 +1,22 @@
 use cgmath;
 use wgpu;
 
-mod object;
-use object::ObjectFamily;
+use rand::RngCore;
 
-mod uniform;
-use uniform::UniformDescriptor;
+mod object;
+use object::{Object, ObjectFamily};
+
+mod layout;
+use layout::LayoutHandler;
 
 mod camera;
 use camera::Camera;
+
+mod pipeline;
+mod object_factory;
+
+mod binding;
+
 
 #[derive(Debug)]
 struct Setup {
@@ -69,6 +77,27 @@ fn create_window(event_loop: &winit::event_loop::EventLoop<()>) -> winit::window
         .with_title("rustgame")
         .build(&event_loop)
         .unwrap();
+}
+
+fn random_number(rng: &mut rand::rngs::ThreadRng) -> f32 {
+    (rng.next_u32() % 501) as f32 - 250.0
+}
+
+fn set_random_position(object: &mut Object) {
+    let mut rng = rand::thread_rng();
+    object.translate(
+        random_number(&mut rng),
+        random_number(&mut rng),
+        random_number(&mut rng),
+    );
+    object.rotate(
+        &cgmath::Vector3 {
+            x: random_number(&mut rng),
+            y: random_number(&mut rng),
+            z: random_number(&mut rng),
+        },
+        &cgmath::Rad(random_number(&mut rng)),
+    )
 }
 
 async fn get_setup() -> Setup {
@@ -149,24 +178,17 @@ fn run(setup: Setup) {
 
     let (vertex_data, index_data) = create_vertices();
 
-    let mut object_family = ObjectFamily::new(&setup.device, &vertex_data, &index_data, 2);
+    let mut object_family = ObjectFamily::new(&setup.device, &vertex_data, &index_data, 1000);
     object_family.get(0).set_scale(0.1, 0.1, 0.1);
-    object_family.get(1).set_scale(0.5, 0.5, 0.5);
-    object_family.get(1).translate(0.3, 0.5, 1.0);
-    object_family.get(1).rotate(
-        cgmath::Vector3 {
-            x: 2.0,
-            y: 1.0,
-            z: 1.0,
-        },
-        cgmath::Rad(0.2),
-    );
+    for i in 1..1000 {
+        set_random_position(object_family.get(i));
+    }
 
     let mut camera = Camera::look_at(
         &cgmath::Point3 {
             x: 0.0,
             y: 0.0,
-            z: -2.5,
+            z: -50.5,
         },
         &cgmath::Point3 {
             x: 0.3,
@@ -301,7 +323,7 @@ fn run(setup: Setup) {
     let device = setup.device;
     let queue = setup.queue;
 
-    let multiplier = 0.001;
+    let multiplier = 0.003;
     let mut finger_position = winit::dpi::PhysicalPosition { x: 0.0, y: 0.0 };
     event_loop.run(move |event, _, control_flow| {
         let _ = (&instance, &adapter, &swap_chain, &object_family); // force ownership by the closure
@@ -325,11 +347,8 @@ fn run(setup: Setup) {
                         let new_position = touch.location;
                         let dx = new_position.x - finger_position.x;
                         let dy = new_position.y - finger_position.y;
-                        println!("TOUCH[{}, {}]", dx, dy);
-                        camera.rotate_around_center(
-                            -3.0 * multiplier * dx as f32,
-                            -multiplier * dy as f32,
-                        );
+                        camera
+                            .rotate_around_center(-multiplier * dx as f32, -multiplier * dy as f32);
 
                         finger_position = new_position
                     }
@@ -337,6 +356,9 @@ fn run(setup: Setup) {
                 },
                 _ => {}
             },
+            winit::event::Event::Suspended | winit::event::Event::Resumed => {
+                println!("EVENT [{:?}]", event);
+            }
             winit::event::Event::RedrawRequested(_) => {
                 let frame = match swap_chain.get_current_frame() {
                     Ok(frame) => frame,
@@ -348,15 +370,6 @@ fn run(setup: Setup) {
                     }
                 };
 
-                //camera.rotate(0.01, 0.0);
-                object_family.get(0).rotate(
-                    cgmath::Vector3 {
-                        x: 1.0,
-                        y: 1.0,
-                        z: 0.0,
-                    },
-                    cgmath::Rad(0.01),
-                );
                 render(
                     &frame,
                     &device,

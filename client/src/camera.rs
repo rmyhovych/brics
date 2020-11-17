@@ -1,7 +1,7 @@
 use cgmath::{self, InnerSpace, Matrix4, Point3, Quaternion, Rotation, Rotation3, Vector3};
 use wgpu::{self};
 
-use crate::uniform::{Uniform, UniformDescriptor};
+use crate::layout::{Uniform, LayoutHandler};
 
 /*--------------------------------------------------------------------------------------------------*/
 
@@ -16,7 +16,7 @@ impl Uniform for CameraUniform {}
 impl CameraUniform {
     fn new(eye: &Point3<f32>, center: &Point3<f32>, aspect_ratio: f32) -> CameraUniform {
         CameraUniform {
-            projection: cgmath::perspective(cgmath::Deg(60.0), aspect_ratio, 0.01, 100.0),
+            projection: cgmath::perspective(cgmath::Deg(60.0), aspect_ratio, 0.01, 1000.0),
             view: cgmath::Matrix4::look_at(*eye, *center, Vector3::unit_y()),
         }
     }
@@ -97,10 +97,10 @@ impl Camera {
     fn rotate_vector(&mut self, vector: &Vector3<f32>, theta: f32, phi: f32) -> Vector3<f32> {
         let size = vector.magnitude();
         let mut rotation =
-            Quaternion::from_axis_angle(Vector3::unit_y().cross(*vector), cgmath::Rad(phi));
+            Quaternion::from_axis_angle(Vector3::unit_y().cross(*vector).normalize(), cgmath::Rad(phi));
         rotation = rotation * Quaternion::from_axis_angle(Vector3::unit_y(), cgmath::Rad(theta));
 
-        let rotated_v = rotation.rotate_vector(*vector);
+        let rotated_v = rotation.normalize().rotate_vector(*vector);
         rotated_v.normalize_to(size)
     }
 
@@ -113,14 +113,7 @@ impl Camera {
     }
 }
 
-impl UniformDescriptor<CameraUniform> for Camera {
-    fn get_binding(&self) -> u32 {
-        0
-    }
-
-    fn get_uniform_buffer(&self) -> &wgpu::Buffer {
-        &self.uniform_buffer
-    }
+impl LayoutHandler<CameraUniform> for Camera {
 
     fn apply_on_renderpass<'a>(&'a self, _: &mut wgpu::RenderPass<'a>, write_queue: &wgpu::Queue) {
         let uniform_data = CameraUniform::new(&self.eye, &self.center, self.aspect_ratio);

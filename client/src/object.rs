@@ -1,4 +1,4 @@
-use crate::uniform::{Uniform, UniformDescriptor};
+use crate::layout::{Uniform, LayoutHandler};
 use bytemuck;
 use cgmath::{InnerSpace, Matrix4, Quaternion, Rotation3, Vector3};
 use wgpu::{self, util::DeviceExt};
@@ -59,8 +59,8 @@ impl Object {
         self.translation += Vector3 { x, y, z };
     }
 
-    pub fn rotate(&mut self, axis: Vector3<f32>, angle: cgmath::Rad<f32>) {
-        let delta_rotation = Quaternion::from_axis_angle(axis, angle);
+    pub fn rotate(&mut self, axis: &Vector3<f32>, angle: &cgmath::Rad<f32>) {
+        let delta_rotation = Quaternion::from_axis_angle(*axis, *angle);
         self.rotation = (self.rotation * delta_rotation).normalize();
     }
 
@@ -75,7 +75,7 @@ impl Object {
             rotation,
             model,
             color: self.color,
-            _padding: 0.0
+            _padding: 0.0,
         }
     }
 }
@@ -138,12 +138,8 @@ impl ObjectFamily {
 }
 
 impl UniformDescriptor<ObjectUniform> for ObjectFamily {
-    fn get_binding(&self) -> u32 {
-        1
-    }
-
-    fn get_bind_group_layout_entry(&self) -> wgpu::BindGroupLayoutEntry {
-        wgpu::BindGroupLayoutEntry {
+    fn get_bind_group_layout_entry(&self) -> Vec<wgpu::BindGroupLayoutEntry> {
+        vec![wgpu::BindGroupLayoutEntry {
             binding: self.get_binding(),
             visibility: wgpu::ShaderStage::VERTEX,
             ty: wgpu::BindingType::StorageBuffer {
@@ -152,7 +148,7 @@ impl UniformDescriptor<ObjectUniform> for ObjectFamily {
                 min_binding_size: None,
             },
             count: None,
-        }
+        }]
     }
 
     fn get_uniform_buffer(&self) -> &wgpu::Buffer {
