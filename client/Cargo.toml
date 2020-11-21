@@ -19,9 +19,12 @@ version = "0.6"
 package = "wgpu-types"
 version = "0.6"
 
+[[bin]]
+name = "rustgame"
+path = "src/lib.rs"
 
-# [lib]
-# crate-type = ["cdylib"]
+[lib]
+crate-type = ["cdylib"]
 
 [dependencies]
 arrayvec = "0.5"

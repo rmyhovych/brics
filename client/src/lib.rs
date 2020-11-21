@@ -7,7 +7,6 @@ mod object_factory;
 mod pipeline;
 
 mod binding;
-use binding::{Binding, BindingLayout};
 
 mod camera;
 
