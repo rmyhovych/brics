@@ -1,40 +1,32 @@
 use cgmath::{self, InnerSpace, Matrix4, Point3, Quaternion, Rotation, Rotation3, Vector3};
 use wgpu::{self};
 
-use crate::layout::{Uniform, LayoutHandler};
+use crate::binding::{
+    buffer::{UniformBinding, UniformBindingLayout},
+    BindingLayout,
+};
 
 /*--------------------------------------------------------------------------------------------------*/
 
 #[derive(Debug)]
 pub struct CameraUniform {
-    projection: Matrix4<f32>,
-    view: Matrix4<f32>,
+    pv: Matrix4<f32>,
 }
-
-impl Uniform for CameraUniform {}
 
 impl CameraUniform {
     fn new(eye: &Point3<f32>, center: &Point3<f32>, aspect_ratio: f32) -> CameraUniform {
         CameraUniform {
-            projection: cgmath::perspective(cgmath::Deg(60.0), aspect_ratio, 0.01, 1000.0),
-            view: cgmath::Matrix4::look_at(*eye, *center, Vector3::unit_y()),
+            pv: cgmath::perspective(cgmath::Deg(60.0), aspect_ratio, 0.01, 1000.0)
+                * cgmath::Matrix4::look_at(*eye, *center, Vector3::unit_y()),
         }
-    }
-
-    fn create_uniform_buffer(device: &wgpu::Device) -> wgpu::Buffer {
-        device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Camera Uniform Buffer"),
-            size: CameraUniform::size(),
-            usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-            mapped_at_creation: false,
-        })
     }
 }
 
 /*--------------------------------------------------------------------------------------------------*/
 
 pub struct Camera {
-    uniform_buffer: wgpu::Buffer,
+    uniform_binding_layout: UniformBindingLayout,
+    uniform_binding: UniformBinding,
 
     eye: Point3<f32>,
     center: Point3<f32>,
@@ -43,13 +35,20 @@ pub struct Camera {
 
 impl Camera {
     pub fn look_at(
+        device: &wgpu::Device,
+
         eye: &Point3<f32>,
         center: &Point3<f32>,
         aspect_ratio: f32,
-        device: &wgpu::Device,
     ) -> Camera {
+        let uniform_binding_layout: UniformBindingLayout =
+            UniformBindingLayout::new::<CameraUniform>(0, wgpu::ShaderStage::VERTEX);
+        let uniform_binding = uniform_binding_layout.create_binding(device);
+
         Camera {
-            uniform_buffer: CameraUniform::create_uniform_buffer(device),
+            uniform_binding_layout,
+            uniform_binding,
+
             eye: *eye,
             center: *center,
             aspect_ratio: aspect_ratio,
@@ -57,13 +56,24 @@ impl Camera {
     }
 
     pub fn look_at_dir(
+        device: &wgpu::Device,
+
         eye: &Point3<f32>,
         direction: &Vector3<f32>,
         aspect_ratio: f32,
-        device: &wgpu::Device,
     ) -> Camera {
         let center = eye + direction.normalize();
-        Camera::look_at(eye, &center, aspect_ratio, device)
+        Camera::look_at(device, eye, &center, aspect_ratio)
+    }
+
+    /*---------------------------------------------------------------------*/
+
+    pub fn get_binding_layout(&self) -> &UniformBindingLayout {
+        &self.uniform_binding_layout
+    }
+
+    pub fn get_binding(&self) -> &UniformBinding {
+        &self.uniform_binding
     }
 
     /*---------------------------------------------------------------------*/
@@ -96,8 +106,10 @@ impl Camera {
 
     fn rotate_vector(&mut self, vector: &Vector3<f32>, theta: f32, phi: f32) -> Vector3<f32> {
         let size = vector.magnitude();
-        let mut rotation =
-            Quaternion::from_axis_angle(Vector3::unit_y().cross(*vector).normalize(), cgmath::Rad(phi));
+        let mut rotation = Quaternion::from_axis_angle(
+            Vector3::unit_y().cross(*vector).normalize(),
+            cgmath::Rad(phi),
+        );
         rotation = rotation * Quaternion::from_axis_angle(Vector3::unit_y(), cgmath::Rad(theta));
 
         let rotated_v = rotation.normalize().rotate_vector(*vector);
@@ -111,12 +123,13 @@ impl Camera {
     fn set_direction(&mut self, direction: &Vector3<f32>) {
         self.center = self.eye + direction;
     }
-}
 
-impl LayoutHandler<CameraUniform> for Camera {
-
-    fn apply_on_renderpass<'a>(&'a self, _: &mut wgpu::RenderPass<'a>, write_queue: &wgpu::Queue) {
+    pub fn apply_on_renderpass<'a>(
+        &'a self,
+        _: &mut wgpu::RenderPass<'a>,
+        write_queue: &wgpu::Queue,
+    ) {
         let uniform_data = CameraUniform::new(&self.eye, &self.center, self.aspect_ratio);
-        self.write_uniform(write_queue, &uniform_data);
+        self.uniform_binding.update(&uniform_data, write_queue);
     }
 }
