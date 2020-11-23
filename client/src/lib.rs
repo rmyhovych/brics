@@ -1,9 +1,7 @@
 use cgmath;
 use wgpu;
 
-use rand::RngCore;
-
-mod object_factory;
+mod layout;
 mod pipeline;
 
 mod binding;
@@ -101,29 +99,6 @@ fn create_window(event_loop: &winit::event_loop::EventLoop<()>) -> winit::window
         .unwrap();
 }
 
-/*
-fn random_number(rng: &mut rand::rngs::ThreadRng) -> f32 {
-    (rng.next_u32() % 501) as f32 - 250.0
-}
-
-fn set_random_position(object: &mut Object) {
-    let mut rng = rand::thread_rng();
-    object.translate(
-        random_number(&mut rng),
-        random_number(&mut rng),
-        random_number(&mut rng),
-    );
-    object.rotate(
-        &cgmath::Vector3 {
-            x: random_number(&mut rng),
-            y: random_number(&mut rng),
-            z: random_number(&mut rng),
-        },
-        &cgmath::Rad(random_number(&mut rng)),
-    )
-}
-*/
-
 async fn get_setup() -> Setup {
     let chrome_tracing_dir = std::env::var("WGPU_CHROME_TRACE");
     wgpu_subscriber::initialize_default_subscriber(
@@ -210,8 +185,8 @@ fn run(setup: Setup) {
     let camera = camera::Camera::look_at(
         &setup.device,
         &cgmath::Point3 {
-            x: 0.0,
-            y: 0.0,
+            x: 5.0,
+            y: 5.0,
             z: -5.5,
         },
         &cgmath::Point3 {
@@ -222,12 +197,11 @@ fn run(setup: Setup) {
         window_size.width as f32 / window_size.height as f32,
     );
 
-    let object_layout: object_factory::ObjectLayout<Vertex> =
-        object_factory::ObjectLayoutBuilder::new()
-            .add_binding_layout(camera.get_binding_layout())
-            .push_attribute_format(wgpu::VertexFormat::Float3)
-            .push_attribute_format(wgpu::VertexFormat::Float3)
-            .build::<Vertex>(&setup.device);
+    let object_layout: layout::Layout<Vertex> = layout::LayoutBuilder::new()
+        .add_binding_layout(camera.get_binding_layout())
+        .push_attribute_format(wgpu::VertexFormat::Float3)
+        .push_attribute_format(wgpu::VertexFormat::Float3)
+        .build::<Vertex>(&setup.device);
 
     let vertex_module = setup
         .device
@@ -245,13 +219,13 @@ fn run(setup: Setup) {
     println!("Created Pipeline : [{:?}]", pipeline);
 
     let (vertex_data, index_data) = create_vertices();
-    let object = object_layout.create_object(
+    let entity = object_layout.create_entity(
         &setup.device,
         &vertex_data,
         &index_data,
         &vec![camera.get_binding()],
     );
-    println!("Created Object : [{:?}]", object);
+    println!("Created Entity : [{:?}]", entity);
 
     let depth_texture = setup.device.create_texture(&wgpu::TextureDescriptor {
         size: wgpu::Extent3d {
@@ -336,7 +310,7 @@ fn run(setup: Setup) {
                     &device,
                     &pipeline,
                     &camera,
-                    &object,
+                    &entity,
                     &depth_texture_view,
                     &queue,
                 );
@@ -351,7 +325,7 @@ fn render(
     device: &wgpu::Device,
     pipeline: &pipeline::Pipeline,
     camera: &camera::Camera,
-    object: &object_factory::Object,
+    entity: &layout::Entity,
     depth_texture_view: &wgpu::TextureView,
     queue: &wgpu::Queue,
 ) {
@@ -383,7 +357,7 @@ fn render(
         });
         pipeline.apply_on_render_pass(&mut rpass, queue);
         camera.apply_on_renderpass(&mut rpass, queue);
-        object.apply_on_render_pass(&mut rpass, queue);
+        entity.apply_on_render_pass(&mut rpass, queue);
     }
 
     queue.submit(Some(encoder.finish()));

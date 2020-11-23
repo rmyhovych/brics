@@ -1,6 +1,6 @@
 use wgpu;
 
-use crate::object_factory::ObjectLayout;
+use crate::layout::Layout;
 
 /*--------------------------------------------------------------------------------------------------*/
 
@@ -42,7 +42,7 @@ impl<'a> Builder<'a> {
         self
     }
 
-    pub fn set_object_layout<T>(&mut self, object_layout: &'a ObjectLayout<T>) -> &mut Self {
+    pub fn set_object_layout<T>(&mut self, object_layout: &'a Layout<T>) -> &mut Self {
         self.pipeline_layout = Some(object_layout.get_pipeline_layout());
 
         self.vertex_size = Some(object_layout.get_vertex_size());
@@ -75,9 +75,7 @@ impl<'a> Builder<'a> {
                     entry_point: "main",
                 },
                 fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
-                    module: self
-                        .fragment_shader
-                        .expect("Missing Fragment Shader!"),
+                    module: self.fragment_shader.expect("Missing Fragment Shader!"),
                     entry_point: "main",
                 }),
                 rasterization_state: Some(wgpu::RasterizationStateDescriptor {

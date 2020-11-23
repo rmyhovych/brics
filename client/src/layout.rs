@@ -6,14 +6,14 @@ use std::iter::Iterator;
 
 /*--------------------------------------------------------------------------------------------------*/
 
-pub struct ObjectLayoutBuilder {
+pub struct LayoutBuilder {
     binding_layout_entries: Vec<wgpu::BindGroupLayoutEntry>,
     attribute_formats: Vec<wgpu::VertexFormat>,
 }
 
-impl ObjectLayoutBuilder {
-    pub fn new() -> ObjectLayoutBuilder {
-        ObjectLayoutBuilder {
+impl LayoutBuilder {
+    pub fn new() -> LayoutBuilder {
+        LayoutBuilder {
             binding_layout_entries: Vec::new(),
             attribute_formats: Vec::new(),
         }
@@ -33,7 +33,7 @@ impl ObjectLayoutBuilder {
         self
     }
 
-    pub fn build<T>(&self, device: &wgpu::Device) -> ObjectLayout<T> {
+    pub fn build<T>(&self, device: &wgpu::Device) -> Layout<T> {
         let mut vertex_attribute_descriptors = Vec::<wgpu::VertexAttributeDescriptor>::new();
 
         let mut shader_location: wgpu::ShaderLocation = 0;
@@ -52,7 +52,7 @@ impl ObjectLayoutBuilder {
         let bind_group_layout = self.create_bind_group_layout(device);
         let pipeline_layout = self.create_pipeline_layout(device, &bind_group_layout);
 
-        ObjectLayout::<T> {
+        Layout::<T> {
             bind_group_layout,
             pipeline_layout,
 
@@ -83,7 +83,7 @@ impl ObjectLayoutBuilder {
 
 /*--------------------------------------------------------------------------------------------------*/
 
-pub struct ObjectLayout<T> {
+pub struct Layout<T> {
     bind_group_layout: wgpu::BindGroupLayout,
     pipeline_layout: wgpu::PipelineLayout,
 
@@ -91,19 +91,19 @@ pub struct ObjectLayout<T> {
     __phantom: std::marker::PhantomData<T>,
 }
 
-impl<T> ObjectLayout<T> {
-    pub fn create_object(
+impl<T> Layout<T> {
+    pub fn create_entity(
         &self,
         device: &wgpu::Device,
 
         vertices: &Vec<T>,
         indices: &Vec<u16>,
         bindings: &Vec<&dyn binding::Binding>,
-    ) -> Object {
-        self.create_object_instanced(device, vertices, indices, bindings, 1)
+    ) -> Entity {
+        self.create_entity_instanced(device, vertices, indices, bindings, 1)
     }
 
-    pub fn create_object_instanced(
+    pub fn create_entity_instanced(
         &self,
         device: &wgpu::Device,
 
@@ -111,13 +111,13 @@ impl<T> ObjectLayout<T> {
         indices: &Vec<u16>,
         bindings: &Vec<&dyn binding::Binding>,
         n_instances: u32,
-    ) -> Object {
+    ) -> Entity {
         let vertex_buffer = self.create_device_buffer(device, vertices, wgpu::BufferUsage::VERTEX);
         let index_buffer = self.create_device_buffer(device, indices, wgpu::BufferUsage::INDEX);
 
         let bind_group = self.create_bind_group(device, bindings);
 
-        Object {
+        Entity {
             vertex_buffer,
             index_buffer,
 
@@ -153,7 +153,7 @@ impl<T> ObjectLayout<T> {
                 binding: index as u32,
                 resource,
             })
-            .collect::<Vec<wgpu::BindGroupEntry>>();
+            .collect();
 
         device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: None,
@@ -184,7 +184,7 @@ impl<T> ObjectLayout<T> {
 /*--------------------------------------------------------------------------------------------------*/
 
 #[derive(Debug)]
-pub struct Object {
+pub struct Entity {
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
 
@@ -194,7 +194,7 @@ pub struct Object {
     bind_group: wgpu::BindGroup,
 }
 
-impl Object {
+impl Entity {
     pub fn apply_on_render_pass<'a>(
         &'a self,
         render_pass: &mut wgpu::RenderPass<'a>,

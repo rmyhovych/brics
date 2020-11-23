@@ -42,19 +42,6 @@ impl Binding for BufferBinding {
     }
 }
 
-impl BufferBinding {
-    fn update_array<T>(&self, data: &Vec<T>, write_queue: &wgpu::Queue) {
-        let raw_data: &[u8] = unsafe {
-            std::slice::from_raw_parts(
-                data.as_slice().as_ptr() as *const u8,
-                std::mem::size_of::<T>(),
-            )
-        };
-
-        write_queue.write_buffer(&self.buffer, 0, raw_data);
-    }
-}
-
 /*--------------------------------------------------------------------------------------------------*/
 
 pub struct UniformBindingLayout {
@@ -106,6 +93,70 @@ impl UniformBinding {
 }
 
 impl Binding for UniformBinding {
+    fn get_resource(&self) -> wgpu::BindingResource {
+        self.buffer_binding.get_resource()
+    }
+}
+
+/*--------------------------------------------------------------------------------------------------*/
+
+pub struct InstanceArrayBindingLayout {
+    buffer_binding_layout: BufferBindingLayout,
+}
+
+impl InstanceArrayBindingLayout {
+    pub fn new<T>(
+        binding: u32,
+        visibility: wgpu::ShaderStage,
+        n_instances: u32,
+    ) -> InstanceArrayBindingLayout {
+        InstanceArrayBindingLayout {
+            buffer_binding_layout: BufferBindingLayout {
+                binding,
+                visibility,
+                binding_type: wgpu::BindingType::StorageBuffer {
+                    dynamic: false,
+                    min_binding_size: None,
+                    readonly: false,
+                },
+
+                usage: wgpu::BufferUsage::STORAGE | wgpu::BufferUsage::COPY_DST,
+                buffer_size: (std::mem::size_of::<T>() as u32 * n_instances) as wgpu::BufferAddress,
+            },
+        }
+    }
+}
+
+impl BindingLayout<InstanceArrayBinding> for InstanceArrayBindingLayout {
+    fn get_entry(&self) -> wgpu::BindGroupLayoutEntry {
+        self.buffer_binding_layout.get_entry()
+    }
+
+    fn create_binding(&self, device: &wgpu::Device) -> InstanceArrayBinding {
+        InstanceArrayBinding {
+            buffer_binding: self.buffer_binding_layout.create_binding(device),
+        }
+    }
+}
+
+pub struct InstanceArrayBinding {
+    buffer_binding: BufferBinding,
+}
+
+impl InstanceArrayBinding {
+    pub fn update<T>(&self, data: &Vec<T>, write_queue: &wgpu::Queue) {
+        let raw_data: &[u8] = unsafe {
+            std::slice::from_raw_parts(
+                data.as_slice().as_ptr() as *const u8,
+                std::mem::size_of::<T>(),
+            )
+        };
+
+        write_queue.write_buffer(&self.buffer_binding.buffer, 0, raw_data);
+    }
+}
+
+impl Binding for InstanceArrayBinding {
     fn get_resource(&self) -> wgpu::BindingResource {
         self.buffer_binding.get_resource()
     }
