@@ -182,7 +182,7 @@ fn run(setup: Setup) {
         .create_swap_chain(&setup.surface, &swap_chain_descriptor);
     println!("Created swapchain : {:?}", swap_chain);
 
-    let camera = camera::Camera::look_at(
+    let mut camera = camera::Camera::look_at(
         &setup.device,
         &cgmath::Point3 {
             x: 5.0,
@@ -266,14 +266,6 @@ fn run(setup: Setup) {
     event_loop.run(move |event, _, control_flow| {
         let _ = (&instance, &adapter, &swap_chain); // force ownership by the closure
 
-        *control_flow = if cfg!(feature = "metal-auto-capture") {
-            winit::event_loop::ControlFlow::Exit
-        } else {
-            winit::event_loop::ControlFlow::WaitUntil(
-                std::time::Instant::now() + std::time::Duration::from_millis(10),
-            )
-        };
-
         match event {
             winit::event::Event::WindowEvent { event, .. } => match event {
                 winit::event::WindowEvent::CloseRequested => {
@@ -305,6 +297,7 @@ fn run(setup: Setup) {
                     }
                 };
 
+                camera.rotate_around_center(0.01, 0.0);
                 render(
                     &frame,
                     &device,
