@@ -366,9 +366,7 @@ fn render(
 #[cfg_attr(target_os = "android", ndk_glue::main(backtrace = "on"))]
 pub fn main() {
     #[cfg(target_os = "android")]
-    {
-        wait_for_window();
-    }
+    wait_for_window();
 
     println!("Hello, world!");
     let setup = futures::executor::block_on(get_setup());
