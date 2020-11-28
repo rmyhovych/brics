@@ -1,7 +1,7 @@
 extern crate rustgame;
 use rustgame::*;
 
-use binding::{binding, BindingLayout};
+use binding::{Binding, BindingLayout};
 use resource::DynamicResource;
 
 use wgpu;
@@ -40,9 +40,6 @@ fn setup(app: &mut application::Application) -> impl FnMut(&wgpu::Queue) {
         window_size.width as f32 / window_size.height as f32,
     );
 
-    let mut binding_entries = pipeline::BindingEntries::new();
-    binding_entries.add(camera.get_binding_layout());
-
     let model = Model {
         model: cgmath::Matrix4::from_scale(1.0),
         color: cgmath::Vector3 {
@@ -53,8 +50,13 @@ fn setup(app: &mut application::Application) -> impl FnMut(&wgpu::Queue) {
     };
     let object_binding_layout =
         binding::buffer::UniformBindingLayout::new::<Model>(1, wgpu::ShaderStage::VERTEX);
-    let mut object_binding = object_binding_layout.create_binding(&app.device);
-    binding_entries.add(&object_binding_layout);
+    let object_binding = object_binding_layout.create_binding(&app.device);
+
+    // ADD ENTRIES
+    let mut binding_entries = pipeline::BindingEntries::new();
+    binding_entries
+        .add(camera.get_binding_layout())
+        .add(&object_binding_layout);
 
     let (vertices, indices) = create_vertices();
     app.create_pipeline::<VertexBasic>(

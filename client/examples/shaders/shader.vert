@@ -12,7 +12,7 @@ layout(set = 0, binding = 0) uniform Camera {
 layout(set = 0, binding = 1) uniform Model {
     mat4 m_in_Model;
     vec3 v_in_Color;
-}
+};
 
 void main() {
     v_out_Color = v_in_Color;
