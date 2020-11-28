@@ -1,126 +1,241 @@
-use wgpu;
+use wgpu::{self, util::DeviceExt};
 
-use crate::layout::Layout;
+use crate::binding;
+
+pub struct Shaders {
+    pub vertex_module: wgpu::ShaderModule,
+    pub fragment_module: wgpu::ShaderModule,
+}
 
 /*--------------------------------------------------------------------------------------------------*/
 
-pub struct Builder<'a> {
-    vertex_shader: Option<&'a wgpu::ShaderModule>,
-    fragment_shader: Option<&'a wgpu::ShaderModule>,
+pub trait Vertex {
+    fn get_attribute_descriptors() -> Vec<wgpu::VertexAttributeDescriptor> {
+        let mut vertex_attribute_descriptors = Vec::<wgpu::VertexAttributeDescriptor>::new();
 
-    color_format: Option<wgpu::TextureFormat>,
+        let mut shader_location: wgpu::ShaderLocation = 0;
+        let mut offset: wgpu::BufferAddress = 0;
+        for format in Self::get_attribute_formats().iter() {
+            vertex_attribute_descriptors.push(wgpu::VertexAttributeDescriptor {
+                format: *format,
+                offset,
+                shader_location,
+            });
 
-    pipeline_layout: Option<&'a wgpu::PipelineLayout>,
+            shader_location += 1;
+            offset += format.size();
+        }
 
-    vertex_size: Option<u32>,
-    vertex_attribute_descriptors: Option<&'a Vec<wgpu::VertexAttributeDescriptor>>,
+        vertex_attribute_descriptors
+    }
+
+    fn get_attribute_formats() -> Vec<wgpu::VertexFormat>;
 }
 
-impl<'a> Builder<'a> {
-    pub fn new() -> Builder<'a> {
-        Builder {
-            vertex_shader: None,
-            fragment_shader: None,
+/*--------------------------------------------------------------------------------------------------*/
 
-            color_format: None,
+pub struct BindingEntries {
+    entries: Vec<wgpu::BindGroupLayoutEntry>,
+}
 
-            pipeline_layout: None,
-
-            vertex_size: None,
-            vertex_attribute_descriptors: None,
+impl BindingEntries {
+    pub fn new() -> BindingEntries {
+        BindingEntries {
+            entries: Vec::new(),
         }
     }
 
-    pub fn set_shaders(
+    pub fn add<A: binding::Binding, B: binding::BindingLayout<A>>(
         &mut self,
-        vertex_module: &'a wgpu::ShaderModule,
-        fragment_module: &'a wgpu::ShaderModule,
+        binding_layout: &B,
     ) -> &mut Self {
-        self.vertex_shader = Some(vertex_module);
-        self.fragment_shader = Some(fragment_module);
+        self.entries.push(binding_layout.get_entry());
 
         self
-    }
-
-    pub fn set_object_layout<T>(&mut self, object_layout: &'a Layout<T>) -> &mut Self {
-        self.pipeline_layout = Some(object_layout.get_pipeline_layout());
-
-        self.vertex_size = Some(object_layout.get_vertex_size());
-        self.vertex_attribute_descriptors = Some(object_layout.get_vertex_attribute_descriptors());
-
-        self
-    }
-
-    pub fn set_color_format(&mut self, format: wgpu::TextureFormat) -> &mut Self {
-        self.color_format = Some(format);
-
-        self
-    }
-
-    pub fn build(&self, device: &wgpu::Device) -> Pipeline {
-        let vertex_buffer_descriptor = wgpu::VertexBufferDescriptor {
-            stride: self.vertex_size.expect("Missing Vertex Size!") as wgpu::BufferAddress,
-            step_mode: wgpu::InputStepMode::Vertex,
-            attributes: self
-                .vertex_attribute_descriptors
-                .expect("Missing Vertex Attribute Descriptors!")
-                .as_slice(),
-        };
-        Pipeline {
-            pipeline: device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                label: None,
-                layout: self.pipeline_layout,
-                vertex_stage: wgpu::ProgrammableStageDescriptor {
-                    module: self.vertex_shader.expect("Missing Vertex Shader!"),
-                    entry_point: "main",
-                },
-                fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
-                    module: self.fragment_shader.expect("Missing Fragment Shader!"),
-                    entry_point: "main",
-                }),
-                rasterization_state: Some(wgpu::RasterizationStateDescriptor {
-                    front_face: wgpu::FrontFace::Ccw,
-                    cull_mode: wgpu::CullMode::Back,
-                    ..Default::default()
-                }),
-                primitive_topology: wgpu::PrimitiveTopology::TriangleList,
-                color_states: &[wgpu::ColorStateDescriptor {
-                    format: self.color_format.expect("Missing Color Format!"),
-                    color_blend: wgpu::BlendDescriptor::REPLACE,
-                    alpha_blend: wgpu::BlendDescriptor::REPLACE,
-                    write_mask: wgpu::ColorWrite::ALL,
-                }],
-                depth_stencil_state: Some(wgpu::DepthStencilStateDescriptor {
-                    format: wgpu::TextureFormat::Depth32Float,
-                    depth_write_enabled: true,
-                    depth_compare: wgpu::CompareFunction::Less,
-                    stencil: wgpu::StencilStateDescriptor::default(),
-                }),
-                vertex_state: wgpu::VertexStateDescriptor {
-                    index_format: wgpu::IndexFormat::Uint16,
-                    vertex_buffers: &[vertex_buffer_descriptor],
-                },
-                sample_count: 1,
-                sample_mask: 0,
-                alpha_to_coverage_enabled: false,
-            }),
-        }
     }
 }
 
 /*--------------------------------------------------------------------------------------------------*/
 
-#[derive(Debug)]
 pub struct Pipeline {
-    pipeline: wgpu::RenderPipeline,
+    handle: wgpu::RenderPipeline,
+
+    bind_group_layout: wgpu::BindGroupLayout,
+    entities: Vec<Entity>,
 }
 
 impl Pipeline {
-    pub fn apply_on_render_pass<'a>(
-        &'a self,
-        render_pass: &mut wgpu::RenderPass<'a>,
-        _: &wgpu::Queue,
+    pub fn new<T: Vertex>(
+        device: &wgpu::Device,
+        shaders: &Shaders,
+        binding_entries: &BindingEntries,
+
+        color_format: wgpu::TextureFormat,
+    ) -> Pipeline {
+        let attribute_descriptors = T::get_attribute_descriptors();
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: None,
+            entries: binding_entries.entries.as_slice(),
+        });
+
+        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: None,
+            bind_group_layouts: &[&bind_group_layout],
+            push_constant_ranges: &[],
+        });
+
+        let vertex_buffer_descriptor = wgpu::VertexBufferDescriptor {
+            stride: std::mem::size_of::<T>() as wgpu::BufferAddress,
+            step_mode: wgpu::InputStepMode::Vertex,
+            attributes: attribute_descriptors.as_slice(),
+        };
+
+        let handle = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: None,
+            layout: Some(&pipeline_layout),
+            vertex_stage: wgpu::ProgrammableStageDescriptor {
+                module: &shaders.vertex_module,
+                entry_point: "main",
+            },
+            fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
+                module: &shaders.fragment_module,
+                entry_point: "main",
+            }),
+            rasterization_state: Some(wgpu::RasterizationStateDescriptor {
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: wgpu::CullMode::Back,
+                ..Default::default()
+            }),
+            primitive_topology: wgpu::PrimitiveTopology::TriangleList,
+            color_states: &[wgpu::ColorStateDescriptor {
+                format: color_format,
+                color_blend: wgpu::BlendDescriptor::REPLACE,
+                alpha_blend: wgpu::BlendDescriptor::REPLACE,
+                write_mask: wgpu::ColorWrite::ALL,
+            }],
+            depth_stencil_state: Some(wgpu::DepthStencilStateDescriptor {
+                format: wgpu::TextureFormat::Depth32Float,
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::Less,
+                stencil: wgpu::StencilStateDescriptor::default(),
+            }),
+            vertex_state: wgpu::VertexStateDescriptor {
+                index_format: wgpu::IndexFormat::Uint16,
+                vertex_buffers: &[vertex_buffer_descriptor],
+            },
+            sample_count: 1,
+            sample_mask: 0,
+            alpha_to_coverage_enabled: false,
+        });
+
+        Pipeline {
+            handle,
+
+            bind_group_layout,
+            entities: Vec::new(),
+        }
+    }
+
+    pub fn render<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {
+        render_pass.set_pipeline(&self.handle);
+        self.entities
+            .iter()
+            .for_each(|entity| entity.render(render_pass));
+    }
+
+    pub fn add_entity<T: Vertex>(
+        &mut self,
+        device: &wgpu::Device,
+
+        descriptor: &EntityDescriptor<T>,
     ) {
-        render_pass.set_pipeline(&self.pipeline);
+        let vertex_buffer =
+            self.create_device_buffer(device, &descriptor.vertices, wgpu::BufferUsage::VERTEX);
+        let index_buffer =
+            self.create_device_buffer(device, &descriptor.indices, wgpu::BufferUsage::INDEX);
+
+        let bind_group = self.create_bind_group(device, &descriptor.bindings);
+
+        self.entities.push(Entity {
+            vertex_buffer,
+            index_buffer,
+
+            n_indices: descriptor.indices.len() as u32,
+            n_instances: descriptor.n_instances,
+
+            bind_group,
+        });
+    }
+
+    /*-------------------------------------------------*/
+
+    fn create_bind_group(
+        &self,
+        device: &wgpu::Device,
+        bindings: &Vec<&dyn binding::Binding>,
+    ) -> wgpu::BindGroup {
+        let entries: Vec<wgpu::BindGroupEntry> = bindings
+            .iter()
+            .map(|binding| binding.get_resource())
+            .enumerate()
+            .map(|(index, resource)| wgpu::BindGroupEntry {
+                binding: index as u32,
+                resource,
+            })
+            .collect();
+
+        device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: None,
+            layout: &self.bind_group_layout,
+            entries: entries.as_slice(),
+        })
+    }
+
+    fn create_device_buffer<K>(
+        &self,
+        device: &wgpu::Device,
+        contents: &Vec<K>,
+        usage: wgpu::BufferUsage,
+    ) -> wgpu::Buffer {
+        device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: None,
+            contents: unsafe {
+                std::slice::from_raw_parts(
+                    contents.as_slice().as_ptr() as *const u8,
+                    std::mem::size_of::<K>() * contents.len(),
+                )
+            },
+            usage,
+        })
+    }
+}
+
+/*--------------------------------------------------------------------------------------------------*/
+
+pub struct EntityDescriptor<'a, T: Vertex> {
+    pub vertices: Vec<T>,
+    pub indices: Vec<u16>,
+    pub bindings: Vec<&'a dyn binding::Binding>,
+
+    pub n_instances: u32,
+}
+
+struct Entity {
+    vertex_buffer: wgpu::Buffer,
+    index_buffer: wgpu::Buffer,
+
+    n_indices: u32,
+    n_instances: u32,
+
+    bind_group: wgpu::BindGroup,
+}
+
+impl Entity {
+    fn render<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {
+        render_pass.set_bind_group(0, &self.bind_group, &[]);
+        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+        render_pass.set_index_buffer(self.index_buffer.slice(..));
+
+        render_pass.draw_indexed(0..self.n_indices, 0, 0..self.n_instances);
     }
 }

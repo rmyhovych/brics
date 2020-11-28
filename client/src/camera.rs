@@ -6,6 +6,8 @@ use crate::binding::{
     BindingLayout,
 };
 
+use crate::resource;
+
 /*--------------------------------------------------------------------------------------------------*/
 
 #[derive(Debug)]
@@ -123,12 +125,10 @@ impl Camera {
     fn set_direction(&mut self, direction: &Vector3<f32>) {
         self.center = self.eye + direction;
     }
+}
 
-    pub fn apply_on_renderpass<'a>(
-        &'a self,
-        _: &mut wgpu::RenderPass<'a>,
-        write_queue: &wgpu::Queue,
-    ) {
+impl resource::DynamicResource for Camera {
+    fn update(&self, write_queue: &wgpu::Queue) {
         let uniform_data = CameraUniform::new(&self.eye, &self.center, self.aspect_ratio);
         self.uniform_binding.update(&uniform_data, write_queue);
     }
