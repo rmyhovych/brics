@@ -1,7 +1,8 @@
 extern crate rustgame;
 use rustgame::*;
 
-use rustgame::resource::DynamicResource;
+use binding::{binding, BindingLayout};
+use resource::DynamicResource;
 
 use wgpu;
 use winit;
@@ -15,6 +16,11 @@ impl pipeline::Vertex for VertexBasic {
     fn get_attribute_formats() -> Vec<wgpu::VertexFormat> {
         vec![wgpu::VertexFormat::Float3, wgpu::VertexFormat::Float3]
     }
+}
+
+struct Model {
+    model: cgmath::Matrix4<f32>,
+    color: cgmath::Vector3<f32>,
 }
 
 fn setup(app: &mut application::Application) -> impl FnMut(&wgpu::Queue) {
@@ -37,6 +43,19 @@ fn setup(app: &mut application::Application) -> impl FnMut(&wgpu::Queue) {
     let mut binding_entries = pipeline::BindingEntries::new();
     binding_entries.add(camera.get_binding_layout());
 
+    let model = Model {
+        model: cgmath::Matrix4::from_scale(1.0),
+        color: cgmath::Vector3 {
+            x: 0.5,
+            y: 0.2,
+            z: 0.5,
+        },
+    };
+    let object_binding_layout =
+        binding::buffer::UniformBindingLayout::new::<Model>(1, wgpu::ShaderStage::VERTEX);
+    let mut object_binding = object_binding_layout.create_binding(&app.device);
+    binding_entries.add(&object_binding_layout);
+
     let (vertices, indices) = create_vertices();
     app.create_pipeline::<VertexBasic>(
         "examples/shaders/shader.vert",
@@ -45,7 +64,7 @@ fn setup(app: &mut application::Application) -> impl FnMut(&wgpu::Queue) {
         &vec![pipeline::EntityDescriptor {
             vertices,
             indices,
-            bindings: vec![camera.get_binding()],
+            bindings: vec![camera.get_binding(), &object_binding],
             n_instances: 1,
         }],
     );
@@ -55,6 +74,8 @@ fn setup(app: &mut application::Application) -> impl FnMut(&wgpu::Queue) {
     move |queue: &wgpu::Queue| {
         camera.rotate_around_center(0.01, 0.0);
         camera.update(queue);
+
+        object_binding.update(&model, queue);
     }
 }
 
