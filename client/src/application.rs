@@ -1,6 +1,7 @@
 use wgpu;
 use winit;
 
+use crate::input;
 use crate::pipeline;
 use crate::resource;
 use crate::shader;
@@ -74,11 +75,11 @@ impl Application {
         }
     }
 
-    pub fn step<F>(&self, game_loop: &mut F) -> ()
+    pub fn step<F>(&self, game_loop: &mut F, input_state: &input::InputState) -> ()
     where
-        F: FnMut(&wgpu::Queue),
+        F: FnMut(&wgpu::Queue, &input::InputState),
     {
-        game_loop(&self.queue);
+        game_loop(&self.queue, input_state);
     }
 
     pub fn render(&self, frame: &wgpu::SwapChainFrame) {

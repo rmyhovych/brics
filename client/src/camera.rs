@@ -81,7 +81,9 @@ impl Camera {
     /*---------------------------------------------------------------------*/
 
     pub fn translate(&mut self, x: f32, y: f32, z: f32) {
-        self.eye += Vector3 { x, y, z };
+        let delta = Vector3 { x, y, z };
+        self.eye += delta;
+        self.center += delta;
     }
 
     pub fn set_center(&mut self, x: f32, y: f32, z: f32) {
@@ -104,6 +106,10 @@ impl Camera {
         self.aspect_ratio = aspect_ratio;
     }
 
+    pub fn get_direction(&self) -> Vector3<f32> {
+        (self.center - self.eye).normalize()
+    }
+
     /*---------------------------------------------------------------------*/
 
     fn rotate_vector(&mut self, vector: &Vector3<f32>, theta: f32, phi: f32) -> Vector3<f32> {
@@ -116,10 +122,6 @@ impl Camera {
 
         let rotated_v = rotation.normalize().rotate_vector(*vector);
         rotated_v.normalize_to(size)
-    }
-
-    fn get_direction(&self) -> Vector3<f32> {
-        (self.center - self.eye).normalize()
     }
 
     fn set_direction(&mut self, direction: &Vector3<f32>) {

@@ -1,11 +1,13 @@
 extern crate rustgame;
 use rustgame::*;
 
+use cgmath::{self, InnerSpace};
+
 use binding::{Binding, BindingLayout};
 use resource::DynamicResource;
 
 use wgpu;
-use winit;
+use winit::{self, event::VirtualKeyCode};
 
 struct VertexBasic {
     position: cgmath::Point3<f32>,
@@ -23,7 +25,33 @@ struct Model {
     color: cgmath::Vector3<f32>,
 }
 
-fn setup(app: &mut application::Application) -> impl FnMut(&wgpu::Queue) {
+pub struct RedrawHandler {
+    #[cfg(not(target_arch = "wasm32"))]
+    previous: std::time::Instant,
+}
+
+impl RedrawHandler {
+    pub fn new() -> Self {
+        Self {
+            previous: std::time::Instant::now(),
+        }
+    }
+
+    pub fn request(&mut self, app: &application::Application) {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            if self.previous.elapsed() > std::time::Duration::from_millis(16) {
+                app.request_redraw();
+                self.previous = std::time::Instant::now();
+            }
+        }
+
+        #[cfg(target_arch = "wasm32")]
+        app.request_redraw();
+    }
+}
+
+fn setup(app: &mut application::Application) -> impl FnMut(&wgpu::Queue, &input::InputState) {
     let window_size = app.get_window_size();
     let mut camera = camera::Camera::look_at(
         &app.device,
@@ -71,20 +99,67 @@ fn setup(app: &mut application::Application) -> impl FnMut(&wgpu::Queue) {
         }],
     );
 
+    let mut previous_mouse_input: Option<winit::dpi::PhysicalPosition<f64>> = None;
+    let angle_multiplier = 0.004;
+    let movement_speed = 0.1;
+
     /*-------------------------- GAME LOOP --------------------------*/
 
-    move |queue: &wgpu::Queue| {
-        camera.rotate_around_center(0.01, 0.0);
-        camera.update(queue);
+    move |queue: &wgpu::Queue, input_state: &input::InputState| {
+        match input_state.mouse.button {
+            Some(_) => {
+                if let Some(previous) = previous_mouse_input {
+                    let delta_x = input_state.mouse.location.x - previous.x;
+                    let delta_y = input_state.mouse.location.y - previous.y;
 
+                    camera.rotate_direction(
+                        -angle_multiplier * delta_x as f32,
+                        angle_multiplier * delta_y as f32,
+                    );
+                }
+
+                previous_mouse_input = Some(input_state.mouse.location);
+            }
+            None => previous_mouse_input = None,
+        }
+
+        {
+            let keyboard_pressed = &input_state.keyboard.pressed;
+
+            let direction = camera.get_direction().normalize();
+            let right = direction.cross(cgmath::Vector3::unit_y()).normalize();
+
+            let mut movement = cgmath::Vector3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            };
+            if keyboard_pressed.contains(&VirtualKeyCode::W) {
+                movement += direction;
+            }
+            if keyboard_pressed.contains(&VirtualKeyCode::S) {
+                movement -= direction;
+            }
+            if keyboard_pressed.contains(&VirtualKeyCode::D) {
+                movement += right;
+            }
+            if keyboard_pressed.contains(&VirtualKeyCode::A) {
+                movement -= right;
+            }
+
+            if movement.magnitude2() > 0.0 {
+                movement = movement.normalize_to(movement_speed);
+            }
+
+            camera.translate(movement.x, movement.y, movement.z);
+        }
+
+        camera.update(queue);
         object_binding.update(&model, queue);
     }
 }
 
 fn main() {
-    #[cfg(not(target_arch = "wasm32"))]
-    let mut pool = futures::executor::LocalPool::new();
-
     let event_loop = winit::event_loop::EventLoop::new();
     let mut app: application::Application =
         futures::executor::block_on(application::Application::new(&event_loop));
@@ -93,34 +168,20 @@ fn main() {
 
     let mut swap_chain = app.create_swap_chain();
 
-    #[cfg(not(target_arch = "wasm32"))]
-    let mut last_update_inst = std::time::Instant::now();
+    let mut input_state = input::InputState::new();
 
+    let mut redraw_handler = RedrawHandler::new();
     event_loop.run(move |event, _, control_flow| match event {
         winit::event::Event::MainEventsCleared => {
-            #[cfg(not(target_arch = "wasm32"))]
-            {
-                if last_update_inst.elapsed() > std::time::Duration::from_millis(16) {
-                    app.request_redraw();
-                    last_update_inst = std::time::Instant::now();
-                }
-
-                pool.run_until_stalled();
-            }
-
-            #[cfg(target_arch = "wasm32")]
-            app.request_redraw();
+            redraw_handler.request(&app);
         }
         winit::event::Event::WindowEvent { event, .. } => match event {
             winit::event::WindowEvent::CloseRequested => {
                 *control_flow = winit::event_loop::ControlFlow::Exit;
             }
-            winit::event::WindowEvent::Touch(touch) => match touch.phase {
-                winit::event::TouchPhase::Started => {}
-                winit::event::TouchPhase::Moved => {}
-                _ => (),
-            },
-            _ => {}
+            _ => {
+                input_state.handle(&event);
+            }
         },
         winit::event::Event::Suspended | winit::event::Event::Resumed => {
             println!("EVENT [{:?}]", event);
@@ -136,7 +197,7 @@ fn main() {
                 }
             };
 
-            app.step(&mut game_loop);
+            app.step(&mut game_loop, &input_state);
             app.render(&frame);
         }
         _ => {}
