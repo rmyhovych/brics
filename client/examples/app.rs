@@ -103,7 +103,7 @@ struct MainScene {
     object: Object,
 }
 
-impl MainScene {
+impl Scene for MainScene {
     fn new(renderer: &mut Renderer) -> Self {
         let window_size = renderer.get_window_size();
         let camera = Camera::look_at(
@@ -165,9 +165,7 @@ impl MainScene {
             object,
         }
     }
-}
 
-impl Scene for MainScene {
     fn game_loop(&mut self, input_state: &InputState, renderer: &mut Renderer) {
         match input_state.mouse.button {
             Some(_) => {
@@ -175,9 +173,9 @@ impl Scene for MainScene {
                     let delta_x = input_state.mouse.location.x - previous.x;
                     let delta_y = input_state.mouse.location.y - previous.y;
 
-                    self.camera.rotate_direction(
+                    self.camera.rotate_around_center(
                         -self.angle_multiplier * delta_x as f32,
-                        self.angle_multiplier * delta_y as f32,
+                        -self.angle_multiplier * delta_y as f32,
                     );
                 }
 
