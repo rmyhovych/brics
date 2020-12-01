@@ -14,6 +14,7 @@ use crate::{
 #[derive(Debug)]
 pub struct CameraUniform {
     pv: Matrix4<f32>,
+    position: Point3<f32>,
 }
 
 impl CameraUniform {
@@ -25,6 +26,7 @@ impl CameraUniform {
     ) -> CameraUniform {
         CameraUniform {
             pv: projection * cgmath::Matrix4::look_at(*eye, *center, Vector3::unit_y()),
+            position: *eye,
         }
     }
 }

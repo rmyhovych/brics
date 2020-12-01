@@ -3,7 +3,6 @@ use crate::renderer::Renderer;
 
 use crate::scene::Scene;
 
-use wgpu;
 use winit;
 
 pub trait Application<T: 'static + Scene> {
@@ -18,37 +17,56 @@ pub trait Application<T: 'static + Scene> {
         let mut input_state = InputState::new();
         let mut redraw_handler = RedrawHandler::new();
 
-        event_loop.run(move |event, _, control_flow| match event {
-            winit::event::Event::MainEventsCleared => {
-                redraw_handler.request(&renderer);
-            }
-            winit::event::Event::WindowEvent { event, .. } => match event {
-                winit::event::WindowEvent::CloseRequested => {
-                    *control_flow = winit::event_loop::ControlFlow::Exit;
-                }
-                _ => {
-                    input_state.handle(&event);
-                }
-            },
-            winit::event::Event::Suspended | winit::event::Event::Resumed => {
-                println!("EVENT [{:?}]", event);
-            }
-            winit::event::Event::RedrawRequested(_) => {
-                let frame = match swap_chain.get_current_frame() {
-                    Ok(frame) => frame,
-                    Err(_) => {
-                        swap_chain = renderer.create_swap_chain();
-                        swap_chain
-                            .get_current_frame()
-                            .expect("Failed to acquire next swap chain texture!")
-                    }
-                };
+        event_loop.run(move |event, _, control_flow| {
+            Self::suspend_control_flow(control_flow);
 
-                scene.game_loop(&input_state, &mut renderer);
-                renderer.render(&frame);
+            match event {
+                winit::event::Event::MainEventsCleared => {
+                    redraw_handler.request(&renderer);
+                }
+                winit::event::Event::WindowEvent { event, .. } => match event {
+                    winit::event::WindowEvent::CloseRequested => {
+                        *control_flow = winit::event_loop::ControlFlow::Exit;
+                    }
+                    _ => {
+                        input_state.handle(&event);
+                    }
+                },
+                winit::event::Event::Suspended | winit::event::Event::Resumed => {
+                    println!("EVENT [{:?}]", event);
+                }
+                winit::event::Event::RedrawRequested(_) => {
+                    let frame = match swap_chain.get_current_frame() {
+                        Ok(frame) => frame,
+                        Err(_) => {
+                            swap_chain = renderer.create_swap_chain();
+                            swap_chain
+                                .get_current_frame()
+                                .expect("Failed to acquire next swap chain texture!")
+                        }
+                    };
+
+                    scene.game_loop(&input_state, &mut renderer);
+                    renderer.render(&frame);
+                }
+                _ => {}
             }
-            _ => {}
         });
+    }
+
+    fn suspend_control_flow(control_flow: &mut winit::event_loop::ControlFlow) {
+        *control_flow = {
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                winit::event_loop::ControlFlow::WaitUntil(
+                    std::time::Instant::now() + std::time::Duration::from_millis(15),
+                )
+            }
+            #[cfg(target_arch = "wasm32")]
+            {
+                ControlFlow::Poll
+            }
+        };
     }
 }
 

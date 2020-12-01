@@ -8,7 +8,6 @@ use crate::shader;
 use shaderc;
 
 pub struct Renderer {
-    instance: wgpu::Instance,
     device: wgpu::Device,
     queue: wgpu::Queue,
 
@@ -56,7 +55,6 @@ impl Renderer {
 
         let depth_texture_view = Self::create_depth_texture_view(&device, &window.inner_size());
         Self {
-            instance,
             device,
             queue,
 
