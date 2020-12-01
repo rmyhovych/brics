@@ -1,12 +1,13 @@
 use cgmath::{self, InnerSpace, Matrix4, Point3, Quaternion, Rotation, Rotation3, Vector3};
 use wgpu::{self};
 
-use crate::binding::{
-    buffer::{UniformBinding, UniformBindingLayout},
-    BindingLayout,
+use crate::{
+    binding::{
+        buffer::{UniformBinding, UniformBindingLayout},
+        BindingHandle, BindingLayout, BindingLayoutHandle,
+    },
+    renderer::Renderer,
 };
-
-use crate::resource;
 
 /*--------------------------------------------------------------------------------------------------*/
 
@@ -16,10 +17,14 @@ pub struct CameraUniform {
 }
 
 impl CameraUniform {
-    fn new(eye: &Point3<f32>, center: &Point3<f32>, aspect_ratio: f32) -> CameraUniform {
+    fn new(
+        projection: &Matrix4<f32>,
+        eye: &Point3<f32>,
+        center: &Point3<f32>,
+        aspect_ratio: f32,
+    ) -> CameraUniform {
         CameraUniform {
-            pv: cgmath::perspective(cgmath::Deg(60.0), aspect_ratio, 0.01, 1000.0)
-                * cgmath::Matrix4::look_at(*eye, *center, Vector3::unit_y()),
+            pv: projection * cgmath::Matrix4::look_at(*eye, *center, Vector3::unit_y()),
         }
     }
 }
@@ -30,6 +35,8 @@ pub struct Camera {
     uniform_binding_layout: UniformBindingLayout,
     uniform_binding: UniformBinding,
 
+    projection: Matrix4<f32>,
+
     eye: Point3<f32>,
     center: Point3<f32>,
     aspect_ratio: f32,
@@ -37,7 +44,7 @@ pub struct Camera {
 
 impl Camera {
     pub fn look_at(
-        device: &wgpu::Device,
+        renderer: &Renderer,
 
         eye: &Point3<f32>,
         center: &Point3<f32>,
@@ -45,11 +52,13 @@ impl Camera {
     ) -> Camera {
         let uniform_binding_layout: UniformBindingLayout =
             UniformBindingLayout::new::<CameraUniform>(0, wgpu::ShaderStage::VERTEX);
-        let uniform_binding = uniform_binding_layout.create_binding(device);
+        let uniform_binding = renderer.create_binding(&uniform_binding_layout);
 
         Camera {
             uniform_binding_layout,
             uniform_binding,
+
+            projection: cgmath::perspective(cgmath::Deg(60.0), aspect_ratio, 0.01, 1000.0),
 
             eye: *eye,
             center: *center,
@@ -58,27 +67,15 @@ impl Camera {
     }
 
     pub fn look_at_dir(
-        device: &wgpu::Device,
+        renderer: &Renderer,
 
         eye: &Point3<f32>,
         direction: &Vector3<f32>,
         aspect_ratio: f32,
     ) -> Camera {
         let center = eye + direction.normalize();
-        Camera::look_at(device, eye, &center, aspect_ratio)
+        Camera::look_at(renderer, eye, &center, aspect_ratio)
     }
-
-    /*---------------------------------------------------------------------*/
-
-    pub fn get_binding_layout(&self) -> &UniformBindingLayout {
-        &self.uniform_binding_layout
-    }
-
-    pub fn get_binding(&self) -> &UniformBinding {
-        &self.uniform_binding
-    }
-
-    /*---------------------------------------------------------------------*/
 
     pub fn translate(&mut self, x: f32, y: f32, z: f32) {
         let delta = Vector3 { x, y, z };
@@ -129,9 +126,22 @@ impl Camera {
     }
 }
 
-impl resource::DynamicResource for Camera {
+/*----------------------------------------------------------------------------------*/
+
+impl BindingHandle<UniformBinding> for Camera {
+    fn get_binding(&self) -> &UniformBinding {
+        &self.uniform_binding
+    }
+
     fn update(&self, write_queue: &wgpu::Queue) {
-        let uniform_data = CameraUniform::new(&self.eye, &self.center, self.aspect_ratio);
+        let uniform_data =
+            CameraUniform::new(&self.projection, &self.eye, &self.center, self.aspect_ratio);
         self.uniform_binding.update(&uniform_data, write_queue);
+    }
+}
+
+impl BindingLayoutHandle<UniformBinding, UniformBindingLayout> for Camera {
+    fn get_binding_layout(&self) -> &UniformBindingLayout {
+        &self.uniform_binding_layout
     }
 }

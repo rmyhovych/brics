@@ -46,9 +46,9 @@ impl BindingEntries {
     }
 
     pub fn add<A: binding::Binding, B: binding::BindingLayout<A>>(
-        &mut self,
+        mut self,
         binding_layout: &B,
-    ) -> &mut Self {
+    ) -> Self {
         self.entries.push(binding_layout.get_entry());
 
         self

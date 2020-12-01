@@ -9,7 +9,7 @@ layout(set = 0, binding = 0) uniform Camera {
     mat4 m_in_PV;
 };
 
-layout(set = 0, binding = 1) uniform Model {
+layout(set = 0, binding = 1) uniform ObjectState {
     mat4 m_in_Model;
     vec3 v_in_Color;
 };
