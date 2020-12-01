@@ -1,6 +1,6 @@
+use super::{BindingHandle, BindingLayoutHandle};
 use crate::{
     binding::buffer::{UniformBinding, UniformBindingLayout},
-    binding::{BindingHandle, BindingLayoutHandle},
     renderer::Renderer,
 };
 

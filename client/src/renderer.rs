@@ -1,9 +1,7 @@
 use wgpu;
 use winit;
 
-use crate::binding;
-use crate::pipeline;
-use crate::shader;
+use crate::{binding, handle, pipeline, shader};
 
 use shaderc;
 
@@ -151,9 +149,9 @@ impl Renderer {
 
     pub fn update_binding<B: binding::Binding>(
         &self,
-        binaind_handle: &impl binding::BindingHandle<B>,
+        binding_handle: &impl handle::BindingHandle<B>,
     ) {
-        binaind_handle.update(&self.queue);
+        binding_handle.update(&self.queue);
     }
 
     pub fn create_binding<B: binding::Binding>(

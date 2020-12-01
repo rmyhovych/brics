@@ -1,10 +1,11 @@
 use cgmath::{self, InnerSpace, Matrix4, Point3, Quaternion, Rotation, Rotation3, Vector3};
 use wgpu::{self};
 
+use super::{BindingHandle, BindingLayoutHandle};
 use crate::{
     binding::{
         buffer::{UniformBinding, UniformBindingLayout},
-        BindingHandle, BindingLayout, BindingLayoutHandle,
+        BindingLayout,
     },
     renderer::Renderer,
 };

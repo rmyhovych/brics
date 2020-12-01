@@ -2,10 +2,7 @@ extern crate rustgame;
 
 use rustgame::{
     application::Application,
-    binding::{
-        types::{camera::Camera, object::Object},
-        BindingHandle, BindingLayoutHandle,
-    },
+    handle::{camera::Camera, object::Object, BindingHandle, BindingLayoutHandle},
     input::InputState,
     pipeline::{BindingEntries, EntityDescriptor, Vertex},
     renderer::Renderer,
