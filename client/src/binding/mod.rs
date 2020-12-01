@@ -1,4 +1,7 @@
 pub mod buffer;
+pub mod sampler;
+pub mod texture;
+
 pub mod types;
 
 use wgpu;
