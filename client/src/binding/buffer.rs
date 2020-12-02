@@ -134,7 +134,7 @@ impl InstanceArrayBinding {
         let raw_data: &[u8] = unsafe {
             std::slice::from_raw_parts(
                 data.as_slice().as_ptr() as *const u8,
-                std::mem::size_of::<T>(),
+                data.len() * std::mem::size_of::<T>(),
             )
         };
 

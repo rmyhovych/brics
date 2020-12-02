@@ -2,7 +2,11 @@ extern crate rustgame;
 
 use rustgame::{
     application::Application,
-    handle::{camera::CameraHandle, object::ObjectHandle, BindingHandle, BindingLayoutHandle},
+    handle::{
+        camera::CameraHandle,
+        object::{InstancedObjectHandle, Object, ObjectHandle},
+        BindingHandle, BindingLayoutHandle,
+    },
     input::InputState,
     pipeline::{BindingEntries, EntityDescriptor, Vertex},
     renderer::Renderer,
@@ -97,7 +101,7 @@ struct MainScene {
     movement_speed: f32,
 
     camera: CameraHandle,
-    object: ObjectHandle,
+    object_handle: InstancedObjectHandle,
 }
 
 impl Scene for MainScene {
@@ -118,24 +122,10 @@ impl Scene for MainScene {
             window_size.width as f32 / window_size.height as f32,
         );
 
-        let object = ObjectHandle::new(
-            &renderer,
-            &cgmath::Vector3 {
-                x: 0.0,
-                y: 0.0,
-                z: 0.0,
-            },
-            &cgmath::Vector3 {
-                x: 1.0,
-                y: 0.5,
-                z: 1.0,
-            },
-            &cgmath::Vector3 {
-                x: 0.2,
-                y: 0.8,
-                z: 0.2,
-            },
-        );
+
+        let n_instances = 2;
+        let mut object_handle = InstancedObjectHandle::new(&renderer, n_instances);
+        object_handle.get_object(1).set_color(0.9, 0.2, 0.2);
 
         // ADD ENTRIES
         let (vertices, indices) = create_vertices();
@@ -144,14 +134,15 @@ impl Scene for MainScene {
             "examples/shaders/shader.frag",
             BindingEntries::new()
                 .add(camera.get_binding_layout())
-                .add(object.get_binding_layout()),
+                .add(object_handle.get_binding_layout()),
             &vec![EntityDescriptor {
                 vertices,
                 indices,
-                bindings: vec![camera.get_binding(), object.get_binding()],
-                n_instances: 1,
+                bindings: vec![camera.get_binding(), object_handle.get_binding()],
+                n_instances,
             }],
         );
+
 
         Self {
             previous_mouse_input: None,
@@ -159,7 +150,7 @@ impl Scene for MainScene {
             movement_speed: 0.1,
 
             camera,
-            object,
+            object_handle,
         }
     }
 
@@ -212,10 +203,11 @@ impl Scene for MainScene {
             self.camera.translate(movement.x, movement.y, movement.z);
         }
 
-        // self.object.translate(0.01, 0.0, 0.0);
+        self.object_handle.get_object(0).translate(0.01, 0.0, 0.0);
+        self.object_handle.get_object(1).translate(-0.01, 0.01, 0.0);
 
         renderer.update_binding(&self.camera);
-        renderer.update_binding(&self.object);
+        renderer.update_binding(&self.object_handle);
     }
 }
 
