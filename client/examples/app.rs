@@ -111,7 +111,7 @@ impl Scene for MainScene {
             &renderer,
             &cgmath::Point3 {
                 x: 1.0,
-                y: 4.0,
+                y: 12.0,
                 z: -1.0,
             },
             &cgmath::Point3 {
@@ -122,10 +122,16 @@ impl Scene for MainScene {
             window_size.width as f32 / window_size.height as f32,
         );
 
-
         let n_instances = 2;
         let mut object_handle = InstancedObjectHandle::new(&renderer, n_instances);
-        object_handle.get_object(1).set_color(0.9, 0.2, 0.2);
+        object_handle
+            .get_object(0)
+            .set_color(0.9, 0.2, 0.2)
+            .translate(2.0, 0.0, 0.0);
+        object_handle
+            .get_object(1)
+            .set_color(0.2, 0.9, 0.2)
+            .translate(-1.0, 1.0, 0.0);
 
         // ADD ENTRIES
         let (vertices, indices) = create_vertices();
@@ -142,7 +148,6 @@ impl Scene for MainScene {
                 n_instances,
             }],
         );
-
 
         Self {
             previous_mouse_input: None,
@@ -202,9 +207,6 @@ impl Scene for MainScene {
 
             self.camera.translate(movement.x, movement.y, movement.z);
         }
-
-        self.object_handle.get_object(0).translate(0.01, 0.0, 0.0);
-        self.object_handle.get_object(1).translate(-0.01, 0.01, 0.0);
 
         renderer.update_binding(&self.camera);
         renderer.update_binding(&self.object_handle);
