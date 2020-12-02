@@ -16,7 +16,6 @@ layout(set = 0, binding = 0) uniform u_Camera {
 struct ObjectState {
     mat4 m_in_Model;
     vec3 v_in_Color;
-    float _padding;
 };
 
 layout(set = 0, binding = 1) buffer b_ObjectStates {
