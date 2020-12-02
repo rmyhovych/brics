@@ -13,6 +13,7 @@ use crate::{
 /*--------------------------------------------------------------------------------------------------*/
 
 #[derive(Debug)]
+#[repr(align(16))]
 pub struct CameraUniform {
     pv: Matrix4<f32>,
     position: Point3<f32>,
