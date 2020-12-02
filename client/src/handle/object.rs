@@ -15,6 +15,7 @@ use wgpu;
 struct ObjectState {
     model: Matrix4<f32>,
     color: Vector3<f32>,
+    _padding: f32,
 }
 
 impl ObjectState {
@@ -26,7 +27,7 @@ impl ObjectState {
                 y: 1.0,
                 z: 1.0,
             },
-            // _padding: 0.0,
+            _padding: 0.0,
         }
     }
 }
