@@ -13,14 +13,14 @@ struct ObjectState {
     color: Vector3<f32>,
 }
 
-pub struct Object {
+pub struct ObjectHandle {
     binding_layout: UniformBindingLayout,
     binding: UniformBinding,
 
     state: ObjectState,
 }
 
-impl Object {
+impl ObjectHandle {
     pub fn new(
         renderer: &Renderer,
         position: &Vector3<f32>,
@@ -50,7 +50,7 @@ impl Object {
 
 /*--------------------------------------------------------------------------------------------------*/
 
-impl BindingHandle<UniformBinding> for Object {
+impl BindingHandle<UniformBinding> for ObjectHandle {
     fn get_binding(&self) -> &UniformBinding {
         &self.binding
     }
@@ -60,7 +60,7 @@ impl BindingHandle<UniformBinding> for Object {
     }
 }
 
-impl BindingLayoutHandle<UniformBinding, UniformBindingLayout> for Object {
+impl BindingLayoutHandle<UniformBinding, UniformBindingLayout> for ObjectHandle {
     fn get_binding_layout(&self) -> &UniformBindingLayout {
         &self.binding_layout
     }

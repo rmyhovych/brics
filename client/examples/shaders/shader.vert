@@ -20,7 +20,7 @@ layout(set = 0, binding = 1) uniform ObjectState {
 
 void main() {
     v_out_Color = v_in_Color;
-    v_out_Norm = transpose(inverse(mat3(m_in_Model))) * a_Norm;
+    v_out_Norm = normalize(transpose(inverse(mat3(m_in_Model))) * a_Norm);
     v_out_CamPosition = v_in_CamPosition;
 
     vec4 pos = m_in_Model * vec4(a_Pos, 1.0);

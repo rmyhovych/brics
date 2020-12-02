@@ -34,7 +34,7 @@ impl CameraUniform {
 
 /*--------------------------------------------------------------------------------------------------*/
 
-pub struct Camera {
+pub struct CameraHandle {
     uniform_binding_layout: UniformBindingLayout,
     uniform_binding: UniformBinding,
 
@@ -45,19 +45,19 @@ pub struct Camera {
     aspect_ratio: f32,
 }
 
-impl Camera {
+impl CameraHandle {
     pub fn look_at(
         renderer: &Renderer,
 
         eye: &Point3<f32>,
         center: &Point3<f32>,
         aspect_ratio: f32,
-    ) -> Camera {
+    ) -> Self {
         let uniform_binding_layout: UniformBindingLayout =
             UniformBindingLayout::new::<CameraUniform>(0, wgpu::ShaderStage::VERTEX);
         let uniform_binding = renderer.create_binding(&uniform_binding_layout);
 
-        Camera {
+        Self {
             uniform_binding_layout,
             uniform_binding,
 
@@ -75,9 +75,9 @@ impl Camera {
         eye: &Point3<f32>,
         direction: &Vector3<f32>,
         aspect_ratio: f32,
-    ) -> Camera {
+    ) -> Self {
         let center = eye + direction.normalize();
-        Camera::look_at(renderer, eye, &center, aspect_ratio)
+        Self::look_at(renderer, eye, &center, aspect_ratio)
     }
 
     pub fn translate(&mut self, x: f32, y: f32, z: f32) {
@@ -131,7 +131,7 @@ impl Camera {
 
 /*----------------------------------------------------------------------------------*/
 
-impl BindingHandle<UniformBinding> for Camera {
+impl BindingHandle<UniformBinding> for CameraHandle {
     fn get_binding(&self) -> &UniformBinding {
         &self.uniform_binding
     }
@@ -143,7 +143,7 @@ impl BindingHandle<UniformBinding> for Camera {
     }
 }
 
-impl BindingLayoutHandle<UniformBinding, UniformBindingLayout> for Camera {
+impl BindingLayoutHandle<UniformBinding, UniformBindingLayout> for CameraHandle {
     fn get_binding_layout(&self) -> &UniformBindingLayout {
         &self.uniform_binding_layout
     }

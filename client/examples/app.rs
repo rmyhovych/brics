@@ -2,7 +2,7 @@ extern crate rustgame;
 
 use rustgame::{
     application::Application,
-    handle::{camera::Camera, object::Object, BindingHandle, BindingLayoutHandle},
+    handle::{camera::CameraHandle, object::ObjectHandle, BindingHandle, BindingLayoutHandle},
     input::InputState,
     pipeline::{BindingEntries, EntityDescriptor, Vertex},
     renderer::Renderer,
@@ -96,19 +96,19 @@ struct MainScene {
     angle_multiplier: f32,
     movement_speed: f32,
 
-    camera: Camera,
-    object: Object,
+    camera: CameraHandle,
+    object: ObjectHandle,
 }
 
 impl Scene for MainScene {
     fn new(renderer: &mut Renderer) -> Self {
         let window_size = renderer.get_window_size();
-        let camera = Camera::look_at(
+        let camera = CameraHandle::look_at(
             &renderer,
             &cgmath::Point3 {
-                x: 5.0,
-                y: 5.0,
-                z: -5.5,
+                x: 1.0,
+                y: 4.0,
+                z: -1.0,
             },
             &cgmath::Point3 {
                 x: 0.0,
@@ -118,7 +118,7 @@ impl Scene for MainScene {
             window_size.width as f32 / window_size.height as f32,
         );
 
-        let object = Object::new(
+        let object = ObjectHandle::new(
             &renderer,
             &cgmath::Vector3 {
                 x: 0.0,
@@ -212,7 +212,7 @@ impl Scene for MainScene {
             self.camera.translate(movement.x, movement.y, movement.z);
         }
 
-        self.object.translate(0.01, 0.0, 0.0);
+        // self.object.translate(0.01, 0.0, 0.0);
 
         renderer.update_binding(&self.camera);
         renderer.update_binding(&self.object);
