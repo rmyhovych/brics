@@ -1,7 +1,7 @@
 use wgpu;
 use winit;
 
-use crate::{binding, handle, pipeline, shader};
+use crate::{binding, handle, pipeline, render_pass, shader};
 
 use shaderc;
 
@@ -12,11 +12,11 @@ pub struct Renderer {
     window: winit::window::Window,
     surface: wgpu::Surface,
 
-    depth_texture_view: wgpu::TextureView,
-
     swap_chain_format: wgpu::TextureFormat,
 
     pipelines: Vec<pipeline::Pipeline>,
+
+    render_pass: render_pass::RenderPass,
 }
 
 impl Renderer {
@@ -51,7 +51,28 @@ impl Renderer {
             .await
             .unwrap();
 
+        let mut rpass = render_pass::RenderPass::new(
+            render_pass::AttachmentView::Dynamic,
+            wgpu::Operations {
+                load: wgpu::LoadOp::Clear(wgpu::Color {
+                    r: 0.3,
+                    g: 0.2,
+                    b: 0.3,
+                    a: 1.0,
+                }),
+                store: true,
+            },
+        );
+
         let depth_texture_view = Self::create_depth_texture_view(&device, &window.inner_size());
+        rpass.add_depth_attachment(
+            depth_texture_view,
+            wgpu::Operations {
+                load: wgpu::LoadOp::Clear(1.0),
+                store: false,
+            },
+        );
+
         Self {
             device,
             queue,
@@ -59,51 +80,20 @@ impl Renderer {
             window,
             surface,
 
-            depth_texture_view,
-
             #[cfg(not(target_os = "android"))]
             swap_chain_format: wgpu::TextureFormat::Bgra8Unorm,
             #[cfg(target_os = "android")]
             swap_chain_format: wgpu::TextureFormat::Rgba8Unorm,
 
             pipelines: Vec::new(),
+
+            render_pass: rpass,
         }
     }
 
     pub fn render(&self, frame: &wgpu::SwapChainFrame) {
-        let mut encoder = self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
-        {
-            let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                    attachment: &frame.output.view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.1,
-                            g: 0.2,
-                            b: 0.3,
-                            a: 1.0,
-                        }),
-                        store: true,
-                    },
-                }],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
-                    attachment: &self.depth_texture_view,
-                    depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(1.0),
-                        store: false,
-                    }),
-                    stencil_ops: None,
-                }),
-            });
-
-            for p in self.pipelines.iter() {
-                p.render(&mut rpass)
-            }
-        }
-        self.queue.submit(Some(encoder.finish()));
+        self.render_pass
+            .submit(&self.device, &self.queue, &self.pipelines, frame);
     }
 
     pub fn create_swap_chain(&self) -> wgpu::SwapChain {
