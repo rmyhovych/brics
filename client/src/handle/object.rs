@@ -53,7 +53,7 @@ pub struct ObjectHandle {
     binding_layout: UniformBindingLayout,
     binding: UniformBinding,
 
-    states: Vec<ObjectState>,
+    state: ObjectState,
 }
 
 impl ObjectHandle {
@@ -65,13 +65,13 @@ impl ObjectHandle {
             binding_layout,
             binding,
 
-            states: vec![ObjectState::new()],
+            state: ObjectState::new(),
         }
     }
 
     pub fn get_object(&mut self) -> Object {
         Object {
-            state: &mut self.states[0],
+            state: &mut self.state,
         }
     }
 }
@@ -82,7 +82,7 @@ impl BindingHandle<UniformBinding> for ObjectHandle {
     }
 
     fn update(&self, write_queue: &wgpu::Queue) {
-        self.binding.update(&self.states[0], write_queue);
+        self.binding.update(&self.state, write_queue);
     }
 }
 
@@ -114,9 +114,7 @@ impl InstancedObjectHandle {
             binding_layout,
             binding,
 
-            states: (0..n_instances)
-                .map(|_| ObjectState::new())
-                .collect::<Vec<ObjectState>>(),
+            states: (0..n_instances).map(|_| ObjectState::new()).collect(),
         }
     }
 
