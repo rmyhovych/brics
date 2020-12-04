@@ -14,6 +14,8 @@ struct Attachment<T> {
 pub struct RenderPass {
     color_attachment: Attachment<wgpu::Color>,
     depth_attachment: Option<Attachment<f32>>,
+
+    pipelines: Vec<Pipeline>,
 }
 
 impl RenderPass {
@@ -25,6 +27,8 @@ impl RenderPass {
             },
 
             depth_attachment: None,
+
+            pipelines: Vec::new(),
         }
     }
 
@@ -39,13 +43,13 @@ impl RenderPass {
         });
     }
 
-    pub fn submit(
-        &self,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        pipelines: &Vec<Pipeline>,
-        frame: &wgpu::SwapChainFrame,
-    ) {
+    pub fn add_pipeline(&mut self, pipeline: Pipeline) -> &mut Pipeline {
+        self.pipelines.push(pipeline);
+
+        self.pipelines.last_mut().unwrap()
+    }
+
+    pub fn submit(&self, device: &wgpu::Device, queue: &wgpu::Queue, frame: &wgpu::SwapChainFrame) {
         let mut encoder =
             device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
         {
@@ -77,7 +81,7 @@ impl RenderPass {
                 depth_stencil_attachment: depth_attachment_descriptor,
             });
 
-            for p in pipelines.iter() {
+            for p in self.pipelines.iter() {
                 p.render(&mut rpass)
             }
         }

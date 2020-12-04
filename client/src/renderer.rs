@@ -14,8 +14,6 @@ pub struct Renderer {
 
     swap_chain_format: wgpu::TextureFormat,
 
-    pipelines: Vec<pipeline::Pipeline>,
-
     render_pass: render_pass::RenderPass,
 }
 
@@ -55,7 +53,7 @@ impl Renderer {
             render_pass::AttachmentView::Dynamic,
             wgpu::Operations {
                 load: wgpu::LoadOp::Clear(wgpu::Color {
-                    r: 0.3,
+                    r: 0.1,
                     g: 0.2,
                     b: 0.3,
                     a: 1.0,
@@ -85,15 +83,12 @@ impl Renderer {
             #[cfg(target_os = "android")]
             swap_chain_format: wgpu::TextureFormat::Rgba8Unorm,
 
-            pipelines: Vec::new(),
-
             render_pass: rpass,
         }
     }
 
     pub fn render(&self, frame: &wgpu::SwapChainFrame) {
-        self.render_pass
-            .submit(&self.device, &self.queue, &self.pipelines, frame);
+        self.render_pass.submit(&self.device, &self.queue, frame);
     }
 
     pub fn create_swap_chain(&self) -> wgpu::SwapChain {
@@ -169,14 +164,13 @@ impl Renderer {
             ),
         };
 
-        self.pipelines.push(pipeline::Pipeline::new::<T>(
+        let pipeline = self.render_pass.add_pipeline(pipeline::Pipeline::new::<T>(
             &self.device,
             &shaders,
             &binding_entries,
             self.swap_chain_format,
         ));
 
-        let pipeline = self.pipelines.last_mut().unwrap();
         for desc in entity_descriptors {
             pipeline.add_entity(&self.device, &desc);
         }
