@@ -57,8 +57,8 @@ pub struct ObjectHandle {
 }
 
 impl ObjectHandle {
-    pub fn new(renderer: &Renderer) -> Self {
-        let binding_layout = UniformBindingLayout::new::<ObjectState>(1, wgpu::ShaderStage::VERTEX);
+    pub fn new(renderer: &Renderer, binding: u32, visibility: wgpu::ShaderStage) -> Self {
+        let binding_layout = UniformBindingLayout::new::<ObjectState>(binding, visibility);
         let binding = renderer.create_binding(&binding_layout);
 
         Self {
@@ -102,12 +102,14 @@ pub struct InstancedObjectHandle {
 }
 
 impl InstancedObjectHandle {
-    pub fn new(renderer: &Renderer, n_instances: u32) -> Self {
-        let binding_layout = InstanceArrayBindingLayout::new::<ObjectState>(
-            1,
-            wgpu::ShaderStage::VERTEX,
-            n_instances,
-        );
+    pub fn new(
+        renderer: &Renderer,
+        binding: u32,
+        visibility: wgpu::ShaderStage,
+        n_instances: u32,
+    ) -> Self {
+        let binding_layout =
+            InstanceArrayBindingLayout::new::<ObjectState>(binding, visibility, n_instances);
         let binding = renderer.create_binding(&binding_layout);
 
         Self {

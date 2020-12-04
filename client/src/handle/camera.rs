@@ -3,10 +3,7 @@ use wgpu::{self};
 
 use super::{BindingHandle, BindingLayoutHandle};
 use crate::{
-    binding::{
-        buffer::{UniformBinding, UniformBindingLayout},
-        BindingLayout,
-    },
+    binding::buffer::{UniformBinding, UniformBindingLayout},
     renderer::Renderer,
 };
 
@@ -20,12 +17,7 @@ pub struct CameraState {
 }
 
 impl CameraState {
-    fn new(
-        projection: &Matrix4<f32>,
-        eye: &Point3<f32>,
-        center: &Point3<f32>,
-        aspect_ratio: f32,
-    ) -> CameraState {
+    fn new(projection: &Matrix4<f32>, eye: &Point3<f32>, center: &Point3<f32>) -> CameraState {
         CameraState {
             pv: projection * cgmath::Matrix4::look_at(*eye, *center, Vector3::unit_y()),
             position: *eye,
@@ -43,68 +35,79 @@ pub struct CameraHandle {
 
     eye: Point3<f32>,
     center: Point3<f32>,
-    aspect_ratio: f32,
 }
 
 impl CameraHandle {
-    pub fn look_at(
-        renderer: &Renderer,
-
-        eye: &Point3<f32>,
-        center: &Point3<f32>,
-        aspect_ratio: f32,
-    ) -> Self {
+    pub fn new(renderer: &Renderer, binding: u32, visibility: wgpu::ShaderStage) -> Self {
         let uniform_binding_layout: UniformBindingLayout =
-            UniformBindingLayout::new::<CameraState>(0, wgpu::ShaderStage::VERTEX);
+            UniformBindingLayout::new::<CameraState>(binding, visibility);
         let uniform_binding = renderer.create_binding(&uniform_binding_layout);
 
         Self {
             uniform_binding_layout,
             uniform_binding,
 
-            projection: cgmath::perspective(cgmath::Deg(60.0), aspect_ratio, 0.01, 1000.0),
+            projection: Matrix4::from_scale(1.0),
 
-            eye: *eye,
-            center: *center,
-            aspect_ratio: aspect_ratio,
+            eye: Point3 {
+                x: 1.0,
+                y: 1.0,
+                z: 1.0,
+            },
+            center: Point3 {
+                x: 1.0,
+                y: 1.0,
+                z: 1.0,
+            },
         }
     }
 
-    pub fn look_at_dir(
-        renderer: &Renderer,
-
-        eye: &Point3<f32>,
-        direction: &Vector3<f32>,
-        aspect_ratio: f32,
-    ) -> Self {
+    pub fn look_at_dir(&mut self, eye: Point3<f32>, direction: Vector3<f32>) -> &mut Self {
         let center = eye + direction.normalize();
-        Self::look_at(renderer, eye, &center, aspect_ratio)
+        self.look_at(eye, center)
     }
 
-    pub fn translate(&mut self, x: f32, y: f32, z: f32) {
+    pub fn look_at(&mut self, eye: Point3<f32>, center: Point3<f32>) -> &mut Self {
+        self.eye = eye;
+        self.center = center;
+
+        self
+    }
+
+    pub fn set_perspective(&mut self, angle: f32, aspect_ratio: f32) -> &mut Self {
+        self.projection = cgmath::perspective(cgmath::Deg(angle), aspect_ratio, 0.01, 1000.0);
+
+        self
+    }
+
+    pub fn translate(&mut self, x: f32, y: f32, z: f32) -> &mut Self {
         let delta = Vector3 { x, y, z };
         self.eye += delta;
         self.center += delta;
+
+        self
     }
 
-    pub fn set_center(&mut self, x: f32, y: f32, z: f32) {
+    pub fn set_center(&mut self, x: f32, y: f32, z: f32) -> &mut Self {
         self.center = Point3 { x, y, z };
+
+        self
     }
 
-    pub fn rotate_direction(&mut self, theta: f32, phi: f32) {
+    pub fn rotate_direction(&mut self, theta: f32, phi: f32) -> &mut Self {
         let mut direction = self.get_direction();
         direction = self.rotate_vector(&direction, theta, phi);
         self.set_direction(&direction);
+
+        self
     }
 
-    pub fn rotate_around_center(&mut self, theta: f32, phi: f32) {
+    pub fn rotate_around_center(&mut self, theta: f32, phi: f32) -> &mut Self {
         let from_center = self.eye - self.center;
         let rotated = self.rotate_vector(&from_center, theta, phi);
         self.eye = self.center + rotated;
-    }
 
-    pub fn set_aspect_ratio(&mut self, aspect_ratio: f32) {
-        self.aspect_ratio = aspect_ratio;
+        self
     }
 
     pub fn get_direction(&self) -> Vector3<f32> {
@@ -138,8 +141,7 @@ impl BindingHandle<UniformBinding> for CameraHandle {
     }
 
     fn update(&self, write_queue: &wgpu::Queue) {
-        let uniform_data =
-            CameraState::new(&self.projection, &self.eye, &self.center, self.aspect_ratio);
+        let uniform_data = CameraState::new(&self.projection, &self.eye, &self.center);
         self.uniform_binding.update(&uniform_data, write_queue);
     }
 }

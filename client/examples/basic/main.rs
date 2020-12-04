@@ -109,22 +109,23 @@ struct MainScene {
 impl Scene for MainScene {
     fn new(renderer: &mut Renderer) -> Self {
         let window_size = renderer.get_window_size();
-        let camera = CameraHandle::look_at(
-            &renderer,
-            &cgmath::Point3 {
-                x: 1.0,
-                y: 12.0,
-                z: -1.0,
-            },
-            &cgmath::Point3 {
-                x: 0.0,
-                y: 0.0,
-                z: 0.0,
-            },
-            window_size.width as f32 / window_size.height as f32,
-        );
+        let mut camera = CameraHandle::new(&renderer, 0, wgpu::ShaderStage::VERTEX);
+        camera
+            .set_perspective(60.0, window_size.width as f32 / window_size.height as f32)
+            .look_at(
+                cgmath::Point3 {
+                    x: 1.0,
+                    y: 12.0,
+                    z: -1.0,
+                },
+                cgmath::Point3 {
+                    x: 0.0,
+                    y: 0.0,
+                    z: 0.0,
+                },
+            );
 
-        let mut light = LightHandle::new(&renderer);
+        let mut light = LightHandle::new(&renderer, 2, wgpu::ShaderStage::FRAGMENT);
         light
             .set_color(cgmath::Vector3 {
                 x: 1.0,
@@ -138,7 +139,8 @@ impl Scene for MainScene {
             });
 
         let n_instances = 2;
-        let mut object_handle = InstancedObjectHandle::new(&renderer, n_instances);
+        let mut object_handle =
+            InstancedObjectHandle::new(&renderer, 1, wgpu::ShaderStage::VERTEX, n_instances);
         object_handle
             .get_object(0)
             .set_color(0.9, 0.2, 0.2)

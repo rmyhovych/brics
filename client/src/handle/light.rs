@@ -35,9 +35,9 @@ pub struct LightHandle {
 }
 
 impl LightHandle {
-    pub fn new(renderer: &Renderer) -> Self {
+    pub fn new(renderer: &Renderer, binding: u32, visibility: wgpu::ShaderStage) -> Self {
         let binding_layout =
-            UniformBindingLayout::new::<LightState>(2, wgpu::ShaderStage::FRAGMENT);
+            UniformBindingLayout::new::<LightState>(binding, visibility);
         let binding = renderer.create_binding(&binding_layout);
 
         Self {
