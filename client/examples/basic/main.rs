@@ -4,6 +4,7 @@ use rustgame::{
     application::Application,
     handle::{
         camera::CameraHandle,
+        light::LightHandle,
         object::{InstancedObjectHandle, Object, ObjectHandle},
         BindingHandle, BindingLayoutHandle,
     },
@@ -101,6 +102,7 @@ struct MainScene {
     movement_speed: f32,
 
     camera: CameraHandle,
+    light: LightHandle,
     object_handle: InstancedObjectHandle,
 }
 
@@ -122,6 +124,19 @@ impl Scene for MainScene {
             window_size.width as f32 / window_size.height as f32,
         );
 
+        let mut light = LightHandle::new(&renderer);
+        light
+            .set_color(cgmath::Vector3 {
+                x: 1.0,
+                y: 1.0,
+                z: 1.0,
+            })
+            .set_direction(cgmath::Vector3 {
+                x: 0.5,
+                y: 1.0,
+                z: 0.2,
+            });
+
         let n_instances = 2;
         let mut object_handle = InstancedObjectHandle::new(&renderer, n_instances);
         object_handle
@@ -136,15 +151,20 @@ impl Scene for MainScene {
         // ADD ENTRIES
         let (vertices, indices) = create_vertices();
         renderer.create_pipeline::<VertexBasic>(
-            "examples/shaders/shader.vert",
-            "examples/shaders/shader.frag",
+            "examples/basic/shaders/shader.vert",
+            "examples/basic/shaders/shader.frag",
             BindingEntries::new()
                 .add(camera.get_binding_layout())
-                .add(object_handle.get_binding_layout()),
+                .add(object_handle.get_binding_layout())
+                .add(light.get_binding_layout()),
             &vec![EntityDescriptor {
                 vertices,
                 indices,
-                bindings: vec![camera.get_binding(), object_handle.get_binding()],
+                bindings: vec![
+                    camera.get_binding(),
+                    object_handle.get_binding(),
+                    light.get_binding(),
+                ],
                 n_instances,
             }],
         );
@@ -155,6 +175,7 @@ impl Scene for MainScene {
             movement_speed: 0.1,
 
             camera,
+            light,
             object_handle,
         }
     }
@@ -209,6 +230,7 @@ impl Scene for MainScene {
         }
 
         renderer.update_binding(&self.camera);
+        renderer.update_binding(&self.light);
         renderer.update_binding(&self.object_handle);
     }
 }

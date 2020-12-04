@@ -14,19 +14,19 @@ use crate::{
 
 #[derive(Debug)]
 #[repr(align(16))]
-pub struct CameraUniform {
+pub struct CameraState {
     pv: Matrix4<f32>,
     position: Point3<f32>,
 }
 
-impl CameraUniform {
+impl CameraState {
     fn new(
         projection: &Matrix4<f32>,
         eye: &Point3<f32>,
         center: &Point3<f32>,
         aspect_ratio: f32,
-    ) -> CameraUniform {
-        CameraUniform {
+    ) -> CameraState {
+        CameraState {
             pv: projection * cgmath::Matrix4::look_at(*eye, *center, Vector3::unit_y()),
             position: *eye,
         }
@@ -55,7 +55,7 @@ impl CameraHandle {
         aspect_ratio: f32,
     ) -> Self {
         let uniform_binding_layout: UniformBindingLayout =
-            UniformBindingLayout::new::<CameraUniform>(0, wgpu::ShaderStage::VERTEX);
+            UniformBindingLayout::new::<CameraState>(0, wgpu::ShaderStage::VERTEX);
         let uniform_binding = renderer.create_binding(&uniform_binding_layout);
 
         Self {
@@ -139,7 +139,7 @@ impl BindingHandle<UniformBinding> for CameraHandle {
 
     fn update(&self, write_queue: &wgpu::Queue) {
         let uniform_data =
-            CameraUniform::new(&self.projection, &self.eye, &self.center, self.aspect_ratio);
+            CameraState::new(&self.projection, &self.eye, &self.center, self.aspect_ratio);
         self.uniform_binding.update(&uniform_data, write_queue);
     }
 }
