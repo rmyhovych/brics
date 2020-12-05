@@ -104,6 +104,8 @@ struct MainScene {
     camera: CameraHandle,
     light: LightHandle,
     object_handle: InstancedObjectHandle,
+
+    light_object_handle: ObjectHandle,
 }
 
 impl Scene for MainScene {
@@ -111,11 +113,11 @@ impl Scene for MainScene {
         let window_size = renderer.get_window_size();
         let mut camera = CameraHandle::new(&renderer, 0, wgpu::ShaderStage::VERTEX);
         camera
-            .set_perspective(60.0, window_size.width as f32 / window_size.height as f32)
+            .set_perspective(75.0, window_size.width as f32 / window_size.height as f32)
             .look_at(
                 cgmath::Point3 {
                     x: 1.0,
-                    y: 12.0,
+                    y: 6.0,
                     z: -1.0,
                 },
                 cgmath::Point3 {
@@ -125,20 +127,23 @@ impl Scene for MainScene {
                 },
             );
 
+        let light_color = cgmath::Vector3 {
+            x: 1.0,
+            y: 1.0,
+            z: 1.0,
+        };
+        let light_position = cgmath::Vector3 {
+            x: -1.0,
+            y: -0.3,
+            z: 0.0,
+        };
+
         let mut light = LightHandle::new(&renderer, 2, wgpu::ShaderStage::FRAGMENT);
         light
-            .set_color(cgmath::Vector3 {
-                x: 1.0,
-                y: 1.0,
-                z: 1.0,
-            })
-            .set_direction(cgmath::Vector3 {
-                x: 0.5,
-                y: 1.0,
-                z: 0.2,
-            });
+            .set_color(light_color.clone())
+            .set_position(light_position.clone());
 
-        let n_instances = 2;
+        let n_instances = 3;
         let mut object_handle =
             InstancedObjectHandle::new(&renderer, 1, wgpu::ShaderStage::VERTEX, n_instances);
         object_handle
@@ -150,11 +155,16 @@ impl Scene for MainScene {
             .set_color(0.2, 0.9, 0.2)
             .translate(-1.0, 1.0, 0.0);
 
+        object_handle
+            .get_object(2)
+            .set_color(0.2, 0.2, 0.9)
+            .translate(1.0, -0.5, -3.0);
+
         // ADD ENTRIES
         let (vertices, indices) = create_vertices();
         renderer.create_pipeline::<VertexBasic>(
-            "examples/basic/shaders/shader.vert",
-            "examples/basic/shaders/shader.frag",
+            "examples/basic/shaders/material.vert",
+            "examples/basic/shaders/material.frag",
             BindingEntries::new()
                 .add(camera.get_binding_layout())
                 .add(object_handle.get_binding_layout())
@@ -171,6 +181,28 @@ impl Scene for MainScene {
             }],
         );
 
+        let mut light_object_handle = ObjectHandle::new(&renderer, 1, wgpu::ShaderStage::VERTEX);
+        light_object_handle
+            .get_object()
+            .set_color(light_color.x, light_color.y, light_color.z)
+            .translate(light_position.x, light_position.y, light_position.z)
+            .rescale(0.05, 0.05, 0.05);
+
+        let (vertices, indices) = create_vertices();
+        renderer.create_pipeline(
+            "examples/basic/shaders/light.vert",
+            "examples/basic/shaders/light.frag",
+            BindingEntries::new()
+                .add(camera.get_binding_layout())
+                .add(light_object_handle.get_binding_layout()),
+            &vec![EntityDescriptor {
+                vertices,
+                indices,
+                bindings: vec![camera.get_binding(), light_object_handle.get_binding()],
+                n_instances: 1,
+            }],
+        );
+
         Self {
             previous_mouse_input: None,
             angle_multiplier: 0.004,
@@ -179,6 +211,7 @@ impl Scene for MainScene {
             camera,
             light,
             object_handle,
+            light_object_handle,
         }
     }
 
@@ -234,6 +267,7 @@ impl Scene for MainScene {
         renderer.update_binding(&self.camera);
         renderer.update_binding(&self.light);
         renderer.update_binding(&self.object_handle);
+        renderer.update_binding(&self.light_object_handle);
     }
 }
 

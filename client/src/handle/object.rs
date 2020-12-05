@@ -38,11 +38,19 @@ pub struct Object<'a> {
 impl Object<'_> {
     pub fn translate(&mut self, x: f32, y: f32, z: f32) -> &mut Self {
         (*self.state).model = Matrix4::from_translation(Vector3 { x, y, z }) * self.state.model;
+
         self
     }
 
     pub fn set_color(&mut self, r: f32, g: f32, b: f32) -> &mut Self {
         (*self.state).color = Vector3 { x: r, y: g, z: b };
+
+        self
+    }
+
+    pub fn rescale(&mut self, x: f32, y: f32, z: f32) -> &mut Self {
+        (*self.state).model = self.state.model * Matrix4::from_nonuniform_scale(x, y, z);
+
         self
     }
 }
