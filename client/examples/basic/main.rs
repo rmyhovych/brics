@@ -5,7 +5,7 @@ use rustgame::{
     handle::{
         camera::CameraHandle,
         light::LightHandle,
-        object::{InstancedObjectHandle, Object, ObjectHandle},
+        object::{InstancedObjectHandle, ObjectHandle},
         BindingHandle, BindingLayoutHandle,
     },
     render_pass::{RenderPass, AttachmentView},
@@ -21,8 +21,8 @@ use wgpu;
 use winit::{self, event::VirtualKeyCode};
 
 struct VertexBasic {
-    position: cgmath::Point3<f32>,
-    normal: cgmath::Vector3<f32>,
+    _position: cgmath::Point3<f32>,
+    _normal: cgmath::Vector3<f32>,
 }
 
 impl Vertex for VertexBasic {
@@ -66,12 +66,12 @@ fn create_vertices() -> (Vec<VertexBasic>, Vec<u16>) {
     ]
     .iter()
     .map(|raw_vertex| VertexBasic {
-        position: cgmath::Point3 {
+        _position: cgmath::Point3 {
             x: raw_vertex[0],
             y: raw_vertex[1],
             z: raw_vertex[2],
         },
-        normal: cgmath::Vector3 {
+        _normal: cgmath::Vector3 {
             x: raw_vertex[3],
             y: raw_vertex[4],
             z: raw_vertex[5],
