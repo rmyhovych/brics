@@ -8,6 +8,7 @@ use rustgame::{
         object::{InstancedObjectHandle, Object, ObjectHandle},
         BindingHandle, BindingLayoutHandle,
     },
+    render_pass::{RenderPass, AttachmentView},
     input::InputState,
     pipeline::{BindingEntries, EntityDescriptor, Vertex},
     renderer::Renderer,
@@ -160,9 +161,33 @@ impl Scene for MainScene {
             .set_color(0.2, 0.2, 0.9)
             .translate(1.0, -0.5, -3.0);
 
+        let mut rpass = RenderPass::new(
+            AttachmentView::Dynamic,
+            wgpu::Operations {
+                load: wgpu::LoadOp::Clear(wgpu::Color {
+                    r: 0.1,
+                    g: 0.2,
+                    b: 0.3,
+                    a: 1.0,
+                }),
+                store: true,
+            },
+        );
+
+        let depth_texture_view = renderer.create_depth_texture_view();
+        rpass.add_depth_attachment(
+            depth_texture_view,
+            wgpu::Operations {
+                load: wgpu::LoadOp::Clear(1.0),
+                store: false,
+            },
+        );
+
+
+
         // ADD ENTRIES
         let (vertices, indices) = create_vertices();
-        renderer.create_pipeline::<VertexBasic>(
+        let material_pipeline = renderer.create_pipeline::<VertexBasic>(
             "examples/basic/shaders/material.vert",
             "examples/basic/shaders/material.frag",
             BindingEntries::new()
@@ -180,6 +205,7 @@ impl Scene for MainScene {
                 n_instances,
             }],
         );
+        rpass.add_pipeline(material_pipeline);
 
         let mut light_object_handle = ObjectHandle::new(&renderer, 1, wgpu::ShaderStage::VERTEX);
         light_object_handle
@@ -189,7 +215,7 @@ impl Scene for MainScene {
             .rescale(0.05, 0.05, 0.05);
 
         let (vertices, indices) = create_vertices();
-        renderer.create_pipeline(
+        let light_pipeline = renderer.create_pipeline(
             "examples/basic/shaders/light.vert",
             "examples/basic/shaders/light.frag",
             BindingEntries::new()
@@ -202,6 +228,9 @@ impl Scene for MainScene {
                 n_instances: 1,
             }],
         );
+        rpass.add_pipeline(light_pipeline);
+
+        renderer.add_render_pass(rpass);
 
         Self {
             previous_mouse_input: None,

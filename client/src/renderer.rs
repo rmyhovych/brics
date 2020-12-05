@@ -14,7 +14,7 @@ pub struct Renderer {
 
     swap_chain_format: wgpu::TextureFormat,
 
-    render_pass: render_pass::RenderPass,
+    render_passes: Vec<render_pass::RenderPass>,
 }
 
 impl Renderer {
@@ -49,28 +49,6 @@ impl Renderer {
             .await
             .unwrap();
 
-        let mut rpass = render_pass::RenderPass::new(
-            render_pass::AttachmentView::Dynamic,
-            wgpu::Operations {
-                load: wgpu::LoadOp::Clear(wgpu::Color {
-                    r: 0.1,
-                    g: 0.2,
-                    b: 0.3,
-                    a: 1.0,
-                }),
-                store: true,
-            },
-        );
-
-        let depth_texture_view = Self::create_depth_texture_view(&device, &window.inner_size());
-        rpass.add_depth_attachment(
-            depth_texture_view,
-            wgpu::Operations {
-                load: wgpu::LoadOp::Clear(1.0),
-                store: false,
-            },
-        );
-
         Self {
             device,
             queue,
@@ -83,12 +61,14 @@ impl Renderer {
             #[cfg(target_os = "android")]
             swap_chain_format: wgpu::TextureFormat::Rgba8Unorm,
 
-            render_pass: rpass,
+            render_passes: Vec::new(),
         }
     }
 
     pub fn render(&self, frame: &wgpu::SwapChainFrame) {
-        self.render_pass.submit(&self.device, &self.queue, frame);
+        self.render_passes
+            .iter()
+            .for_each(|rpass| rpass.submit(&self.device, &self.queue, frame));
     }
 
     pub fn create_swap_chain(&self) -> wgpu::SwapChain {
@@ -146,14 +126,18 @@ impl Renderer {
         binding_layout.create_binding(&self.device)
     }
 
+    pub fn add_render_pass(&mut self, rpass: render_pass::RenderPass) {
+        self.render_passes.push(rpass);
+    }
+
     pub fn create_pipeline<T: pipeline::Vertex>(
-        &mut self,
+        &self,
         vertex_shader_path: &str,
         fragment_shader_path: &str,
         binding_entries: pipeline::BindingEntries,
 
         entity_descriptors: &Vec<pipeline::EntityDescriptor<T>>,
-    ) {
+    ) -> pipeline::Pipeline {
         let mut shader_compiler = shader::ShaderCompiler::new();
         let shaders = pipeline::Shaders {
             vertex_module: self.device.create_shader_module(
@@ -164,16 +148,39 @@ impl Renderer {
             ),
         };
 
-        let pipeline = self.render_pass.add_pipeline(pipeline::Pipeline::new::<T>(
+        let mut pipeline = pipeline::Pipeline::new::<T>(
             &self.device,
             &shaders,
             &binding_entries,
             self.swap_chain_format,
-        ));
+        );
 
         for desc in entity_descriptors {
             pipeline.add_entity(&self.device, &desc);
         }
+
+        pipeline
+    }
+
+    pub fn create_depth_texture_view(
+        &self
+    ) -> wgpu::TextureView {
+        let window_size = self.window.inner_size();
+        let depth_texture = self.device.create_texture(&wgpu::TextureDescriptor {
+            size: wgpu::Extent3d {
+                width: window_size.width,
+                height: window_size.height,
+                depth: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Depth32Float,
+            usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+            label: None,
+        });
+
+        depth_texture.create_view(&wgpu::TextureViewDescriptor::default())
     }
 
     /*-------------------------------------------------*/
@@ -189,26 +196,5 @@ impl Renderer {
         );
 
         (optional_features & adapter_features) | required_features
-    }
-
-    fn create_depth_texture_view(
-        device: &wgpu::Device,
-        window_size: &winit::dpi::PhysicalSize<u32>,
-    ) -> wgpu::TextureView {
-        let depth_texture = device.create_texture(&wgpu::TextureDescriptor {
-            size: wgpu::Extent3d {
-                width: window_size.width,
-                height: window_size.height,
-                depth: 1,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Depth32Float,
-            usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
-            label: None,
-        });
-
-        depth_texture.create_view(&wgpu::TextureViewDescriptor::default())
     }
 }
