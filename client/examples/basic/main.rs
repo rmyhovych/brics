@@ -105,8 +105,6 @@ struct MainScene {
     camera: CameraHandle,
     light: LightHandle,
     object_handle: InstancedObjectHandle,
-
-    light_object_handle: ObjectHandle,
 }
 
 impl Scene for MainScene {
@@ -118,23 +116,24 @@ impl Scene for MainScene {
             y: 1.0,
             z: 1.0,
         };
-        let light_position = cgmath::Vector3 {
+        let light_direction = cgmath::Vector3 {
             x: -1.0,
-            y: -0.3,
-            z: 0.0,
+            y: 1.5,
+            z: 0.5,
         };
         let mut light = LightHandle::new(&renderer, 2, wgpu::ShaderStage::FRAGMENT);
         light
             .set_color(light_color.clone())
-            .set_position(light_position.clone());
+            .set_direction(light_direction);
 
         let n_instances = 3;
         let mut object_handle =
             InstancedObjectHandle::new(&renderer, 1, wgpu::ShaderStage::VERTEX, n_instances);
         object_handle
             .get_object(0)
-            .set_color(0.9, 0.2, 0.2)
-            .translate(2.0, 0.0, 0.0);
+            .set_color(0.8, 0.8, 0.9)
+            .translate(0.0, -1.0, 0.0)
+            .rescale(8.0, 0.1, 8.0);
         object_handle
             .get_object(1)
             .set_color(0.2, 0.9, 0.2)
@@ -143,7 +142,7 @@ impl Scene for MainScene {
         object_handle
             .get_object(2)
             .set_color(0.2, 0.2, 0.9)
-            .translate(1.0, -0.5, -3.0);
+            .translate(1.0, 0.05, -3.0);
 
         let mut rpass = RenderPass::new(
             AttachmentView::Dynamic,
@@ -189,29 +188,6 @@ impl Scene for MainScene {
         );
         rpass.add_pipeline(material_pipeline);
 
-        let mut light_object_handle = ObjectHandle::new(&renderer, 1, wgpu::ShaderStage::VERTEX);
-        light_object_handle
-            .get_object()
-            .set_color(light_color.x, light_color.y, light_color.z)
-            .translate(light_position.x, light_position.y, light_position.z)
-            .rescale(0.05, 0.05, 0.05);
-
-        let (vertices, indices) = create_vertices();
-        let light_pipeline = renderer.create_pipeline(
-            "examples/basic/shaders/light.vert",
-            "examples/basic/shaders/light.frag",
-            BindingEntries::new()
-                .add(camera.get_binding_layout())
-                .add(light_object_handle.get_binding_layout()),
-            &vec![EntityDescriptor {
-                vertices,
-                indices,
-                bindings: vec![camera.get_binding(), light_object_handle.get_binding()],
-                n_instances: 1,
-            }],
-        );
-        rpass.add_pipeline(light_pipeline);
-
         renderer.add_render_pass(rpass);
 
         Self {
@@ -222,7 +198,6 @@ impl Scene for MainScene {
             camera,
             light,
             object_handle,
-            light_object_handle,
         }
     }
 
@@ -278,7 +253,6 @@ impl Scene for MainScene {
         renderer.update_binding(&self.camera);
         renderer.update_binding(&self.light);
         renderer.update_binding(&self.object_handle);
-        renderer.update_binding(&self.light_object_handle);
     }
 }
 
@@ -291,7 +265,7 @@ impl MainScene {
             .look_at(
                 cgmath::Point3 {
                     x: 1.0,
-                    y: 6.0,
+                    y: 10.0,
                     z: -1.0,
                 },
                 cgmath::Point3 {
