@@ -113,51 +113,7 @@ impl Scene for MainScene {
         let light = Self::create_light(renderer);
         let cubes = Self::create_main_object_handle(renderer);
 
-        let mut rpass = RenderPass::new(
-            AttachmentView::Dynamic,
-            wgpu::Operations {
-                load: wgpu::LoadOp::Clear(wgpu::Color {
-                    r: 0.1,
-                    g: 0.2,
-                    b: 0.3,
-                    a: 1.0,
-                }),
-                store: true,
-            },
-        );
-
-        let depth_texture_view = renderer.create_depth_texture_view();
-        rpass.add_depth_attachment(
-            depth_texture_view,
-            wgpu::Operations {
-                load: wgpu::LoadOp::Clear(1.0),
-                store: false,
-            },
-        );
-
-        // ADD ENTRIES
-        let (vertices, indices) = create_vertices();
-        let material_pipeline = renderer.create_pipeline::<VertexBasic>(
-            "examples/basic/shaders/material.vert",
-            "examples/basic/shaders/material.frag",
-            BindingEntries::new()
-                .add(camera.get_binding_layout())
-                .add(cubes.get_binding_layout())
-                .add(light.get_binding_layout()),
-            &vec![EntityDescriptor {
-                vertices,
-                indices,
-                bindings: vec![
-                    camera.get_binding(),
-                    cubes.get_binding(),
-                    light.get_binding(),
-                ],
-                n_instances: cubes.get_n_instances(),
-            }],
-        );
-        rpass.add_pipeline(material_pipeline);
-
-        renderer.add_render_pass(rpass);
+        Self::create_main_render_pass(renderer, &camera, &cubes, &light);
 
         Self {
             previous_mouse_input: None,
@@ -286,6 +242,68 @@ impl MainScene {
             .translate(1.0, 0.05, -3.0);
 
         object_handle
+    }
+
+    fn create_shadow_render_pass(
+        renderer: &mut Renderer,
+        camera: &CameraHandle,
+        cubes: &InstancedObjectHandle,
+        light: &LightHandle,
+    ) {
+    }
+
+    fn create_main_render_pass(
+        renderer: &mut Renderer,
+        camera: &CameraHandle,
+        cubes: &InstancedObjectHandle,
+        light: &LightHandle,
+    ) {
+        let depth_texture_view = renderer.create_depth_texture_view();
+        let mut rpass = RenderPass::new();
+        rpass
+            .set_color_attachment(
+                AttachmentView::Dynamic,
+                wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color {
+                        r: 0.1,
+                        g: 0.2,
+                        b: 0.3,
+                        a: 1.0,
+                    }),
+                    store: true,
+                },
+            )
+            .set_depth_attachment(
+                depth_texture_view,
+                wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(1.0),
+                    store: false,
+                },
+            );
+
+        // ADD ENTRIES
+        let (vertices, indices) = create_vertices();
+        let material_pipeline = renderer.create_pipeline::<VertexBasic>(
+            "examples/basic/shaders/material.vert",
+            "examples/basic/shaders/material.frag",
+            BindingEntries::new()
+                .add(camera.get_binding_layout())
+                .add(cubes.get_binding_layout())
+                .add(light.get_binding_layout()),
+            &vec![EntityDescriptor {
+                vertices,
+                indices,
+                bindings: vec![
+                    camera.get_binding(),
+                    cubes.get_binding(),
+                    light.get_binding(),
+                ],
+                n_instances: cubes.get_n_instances(),
+            }],
+        );
+        rpass.add_pipeline(material_pipeline);
+
+        renderer.add_render_pass(rpass);
     }
 }
 

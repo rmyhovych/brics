@@ -12,35 +12,46 @@ struct Attachment<T> {
 }
 
 pub struct RenderPass {
-    color_attachment: Attachment<wgpu::Color>,
+    color_attachment: Option<Attachment<wgpu::Color>>,
     depth_attachment: Option<Attachment<f32>>,
 
     pipelines: Vec<Pipeline>,
 }
 
 impl RenderPass {
-    pub fn new(color_view: AttachmentView, color_ops: wgpu::Operations<wgpu::Color>) -> Self {
+    pub fn new() -> Self {
         Self {
-            color_attachment: Attachment {
-                view: color_view,
-                ops: color_ops,
-            },
-
+            color_attachment: None,
             depth_attachment: None,
 
             pipelines: Vec::new(),
         }
     }
 
-    pub fn add_depth_attachment(
+    pub fn set_color_attachment(
+        &mut self,
+        color_view: AttachmentView,
+        color_ops: wgpu::Operations<wgpu::Color>,
+    ) -> &mut Self {
+        self.color_attachment = Some(Attachment {
+            view: color_view,
+            ops: color_ops,
+        });
+
+        self
+    }
+
+    pub fn set_depth_attachment(
         &mut self,
         depth_view: wgpu::TextureView,
         depth_ops: wgpu::Operations<f32>,
-    ) {
+    ) -> &mut Self {
         self.depth_attachment = Some(Attachment {
             view: AttachmentView::Static(depth_view),
             ops: depth_ops,
         });
+
+        self
     }
 
     pub fn add_pipeline(&mut self, pipeline: Pipeline) -> &mut Pipeline {
@@ -53,11 +64,6 @@ impl RenderPass {
         let mut encoder =
             device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
         {
-            let color_attachment_view: &wgpu::TextureView = match &self.color_attachment.view {
-                AttachmentView::Dynamic => &frame.output.view,
-                AttachmentView::Static(view) => view,
-            };
-
             let depth_attachment_descriptor = match &self.depth_attachment {
                 None => None,
                 Some(attachment) => match &attachment.view {
@@ -72,14 +78,26 @@ impl RenderPass {
                 },
             };
 
-            let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                    attachment: &color_attachment_view,
-                    resolve_target: None,
-                    ops: self.color_attachment.ops,
-                }],
-                depth_stencil_attachment: depth_attachment_descriptor,
-            });
+            let mut rpass = match &self.color_attachment {
+                Some(color_attachment) => {
+                    let color_attachment_view: &wgpu::TextureView = match &color_attachment.view {
+                        AttachmentView::Dynamic => &frame.output.view,
+                        AttachmentView::Static(view) => view,
+                    };
+                    encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                        color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
+                            attachment: &color_attachment_view,
+                            resolve_target: None,
+                            ops: color_attachment.ops,
+                        }],
+                        depth_stencil_attachment: depth_attachment_descriptor,
+                    })
+                }
+                None => encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                    color_attachments: &[],
+                    depth_stencil_attachment: depth_attachment_descriptor,
+                }),
+            };
 
             for p in self.pipelines.iter() {
                 p.render(&mut rpass)
