@@ -69,6 +69,10 @@ impl LightHandle {
         self
     }
 
+    pub fn get_direction(&self) -> Vector3<f32> {
+        self.state.custom
+    }
+
     pub fn set_color(&mut self, color: Vector3<f32>) -> &mut Self {
         self.state.color = color;
         self

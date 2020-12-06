@@ -55,17 +55,10 @@ impl BindingLayout<TextureBinding> for TextureBindingLayout {
             usage: self.usage,
         });
 
+        let binding_texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
         TextureBinding {
-            texture_view: texture.create_view(&wgpu::TextureViewDescriptor {
-                label: None,
-                format: None,
-                dimension: Some(wgpu::TextureViewDimension::D2),
-                aspect: wgpu::TextureAspect::All,
-                base_mip_level: 0,
-                level_count: None,
-                base_array_layer: 0,
-                array_layer_count: None,
-            }),
+            texture,
+            binding_texture_view,
         }
     }
 }
@@ -73,11 +66,27 @@ impl BindingLayout<TextureBinding> for TextureBindingLayout {
 /*--------------------------------------------------------------------------------------------------*/
 
 pub struct TextureBinding {
-    texture_view: wgpu::TextureView,
+    texture: wgpu::Texture,
+    binding_texture_view: wgpu::TextureView,
 }
 
 impl Binding for TextureBinding {
     fn get_resource(&self) -> wgpu::BindingResource {
-        wgpu::BindingResource::TextureView(&self.texture_view)
+        wgpu::BindingResource::TextureView(&self.binding_texture_view)
+    }
+}
+
+impl TextureBinding {
+    pub fn create_texture_view(&self) -> wgpu::TextureView {
+        self.texture.create_view(&wgpu::TextureViewDescriptor {
+            label: None,
+            format: None,
+            dimension: Some(wgpu::TextureViewDimension::D2),
+            aspect: wgpu::TextureAspect::All,
+            base_mip_level: 0,
+            level_count: None,
+            base_array_layer: 0,
+            array_layer_count: std::num::NonZeroU32::new(1),
+        })
     }
 }

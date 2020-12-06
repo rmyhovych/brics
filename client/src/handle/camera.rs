@@ -80,6 +80,20 @@ impl CameraHandle {
         self
     }
 
+    pub fn set_ortho(
+        &mut self,
+        left: f32,
+        right: f32,
+        bottom: f32,
+        top: f32,
+        near: f32,
+        far: f32,
+    ) -> &mut Self {
+        self.projection = cgmath::ortho(left, right, bottom, top, near, far);
+
+        self
+    }
+
     pub fn translate(&mut self, x: f32, y: f32, z: f32) -> &mut Self {
         let delta = Vector3 { x, y, z };
         self.eye += delta;
@@ -112,6 +126,10 @@ impl CameraHandle {
 
     pub fn get_direction(&self) -> Vector3<f32> {
         (self.center - self.eye).normalize()
+    }
+
+    pub fn get_center(&self) -> Point3<f32> {
+        self.center
     }
 
     /*---------------------------------------------------------------------*/

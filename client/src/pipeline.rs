@@ -70,7 +70,8 @@ impl Pipeline {
         shaders: &Shaders,
         binding_entries: &BindingEntries,
 
-        color_format: wgpu::TextureFormat,
+        color_state: Option<wgpu::ColorStateDescriptor>,
+        depth_stencil_state: Option<wgpu::DepthStencilStateDescriptor>,
     ) -> Pipeline {
         let attribute_descriptors = T::get_attribute_descriptors();
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -90,6 +91,11 @@ impl Pipeline {
             attributes: attribute_descriptors.as_slice(),
         };
 
+        let color_states_vec: Vec<wgpu::ColorStateDescriptor> = match color_state {
+            None => vec![],
+            Some(desc) => vec![desc],
+        };
+
         let handle = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: None,
             layout: Some(&pipeline_layout),
@@ -107,18 +113,8 @@ impl Pipeline {
                 ..Default::default()
             }),
             primitive_topology: wgpu::PrimitiveTopology::TriangleList,
-            color_states: &[wgpu::ColorStateDescriptor {
-                format: color_format,
-                color_blend: wgpu::BlendDescriptor::REPLACE,
-                alpha_blend: wgpu::BlendDescriptor::REPLACE,
-                write_mask: wgpu::ColorWrite::ALL,
-            }],
-            depth_stencil_state: Some(wgpu::DepthStencilStateDescriptor {
-                format: wgpu::TextureFormat::Depth32Float,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less,
-                stencil: wgpu::StencilStateDescriptor::default(),
-            }),
+            color_states: color_states_vec.as_slice(),
+            depth_stencil_state,
             vertex_state: wgpu::VertexStateDescriptor {
                 index_format: wgpu::IndexFormat::Uint16,
                 vertex_buffers: &[vertex_buffer_descriptor],

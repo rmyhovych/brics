@@ -12,8 +12,6 @@ pub struct Renderer {
     window: winit::window::Window,
     surface: wgpu::Surface,
 
-    swap_chain_format: wgpu::TextureFormat,
-
     render_passes: Vec<render_pass::RenderPass>,
 }
 
@@ -56,26 +54,36 @@ impl Renderer {
             window,
             surface,
 
-            #[cfg(not(target_os = "android"))]
-            swap_chain_format: wgpu::TextureFormat::Bgra8Unorm,
-            #[cfg(target_os = "android")]
-            swap_chain_format: wgpu::TextureFormat::Rgba8Unorm,
-
             render_passes: Vec::new(),
         }
     }
 
+    pub fn get_swapchain_color_format() -> wgpu::TextureFormat {
+        #[cfg(not(target_os = "android"))]
+        let swapchain_color_format = wgpu::TextureFormat::Bgra8Unorm;
+
+        #[cfg(target_os = "android")]
+        let swapchain_color_format = wgpu::TextureFormat::Rgba8Unorm;
+
+        swapchain_color_format
+    }
+
     pub fn render(&self, frame: &wgpu::SwapChainFrame) {
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
         self.render_passes
             .iter()
-            .for_each(|rpass| rpass.submit(&self.device, &self.queue, frame));
+            .for_each(|rpass| rpass.submit(&mut encoder, frame));
+
+        self.queue.submit(Some(encoder.finish()));
     }
 
     pub fn create_swap_chain(&self) -> wgpu::SwapChain {
         let window_size = self.window.inner_size();
         let swap_chain_descriptor = wgpu::SwapChainDescriptor {
             usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
-            format: self.swap_chain_format,
+            format: Self::get_swapchain_color_format(),
             width: window_size.width,
             height: window_size.height,
             present_mode: wgpu::PresentMode::Mailbox,
@@ -136,6 +144,9 @@ impl Renderer {
         fragment_shader_path: &str,
         binding_entries: pipeline::BindingEntries,
 
+        color_state: Option<wgpu::ColorStateDescriptor>,
+        depth_stencil_state: Option<wgpu::DepthStencilStateDescriptor>,
+
         entity_descriptors: &Vec<pipeline::EntityDescriptor<T>>,
     ) -> pipeline::Pipeline {
         let mut shader_compiler = shader::ShaderCompiler::new();
@@ -152,7 +163,8 @@ impl Renderer {
             &self.device,
             &shaders,
             &binding_entries,
-            self.swap_chain_format,
+            color_state,
+            depth_stencil_state,
         );
 
         for desc in entity_descriptors {
@@ -162,9 +174,7 @@ impl Renderer {
         pipeline
     }
 
-    pub fn create_depth_texture_view(
-        &self
-    ) -> wgpu::TextureView {
+    pub fn create_depth_texture_view(&self) -> wgpu::TextureView {
         let window_size = self.window.inner_size();
         let depth_texture = self.device.create_texture(&wgpu::TextureDescriptor {
             size: wgpu::Extent3d {

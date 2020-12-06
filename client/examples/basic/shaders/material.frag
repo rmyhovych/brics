@@ -12,6 +12,9 @@ layout(set = 0, binding = 2) uniform u_Light {
     vec3 v_in_LightColor;
 };
 
+layout(set = 0, binding = 3) uniform texture2DArray t_Shadow;
+layout(set = 0, binding = 4) uniform samplerShadow s_Shadow;
+
 void main() {
     vec3 light_dir = v_in_LightDirection;
     vec3 view_dir = normalize(v_in_CamPosition - v_in_FragPos);
