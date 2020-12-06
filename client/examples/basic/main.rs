@@ -104,45 +104,14 @@ struct MainScene {
 
     camera: CameraHandle,
     light: LightHandle,
-    object_handle: InstancedObjectHandle,
+    cubes: InstancedObjectHandle,
 }
 
 impl Scene for MainScene {
     fn new(renderer: &mut Renderer) -> Self {
         let camera = Self::create_main_camera(renderer);
-
-        let light_color = cgmath::Vector3 {
-            x: 1.0,
-            y: 1.0,
-            z: 1.0,
-        };
-        let light_direction = cgmath::Vector3 {
-            x: -1.0,
-            y: 1.5,
-            z: 0.5,
-        };
-        let mut light = LightHandle::new(&renderer, 2, wgpu::ShaderStage::FRAGMENT);
-        light
-            .set_color(light_color.clone())
-            .set_direction(light_direction);
-
-        let n_instances = 3;
-        let mut object_handle =
-            InstancedObjectHandle::new(&renderer, 1, wgpu::ShaderStage::VERTEX, n_instances);
-        object_handle
-            .get_object(0)
-            .set_color(0.8, 0.8, 0.9)
-            .translate(0.0, -1.0, 0.0)
-            .rescale(8.0, 0.1, 8.0);
-        object_handle
-            .get_object(1)
-            .set_color(0.2, 0.9, 0.2)
-            .translate(-1.0, 1.0, 0.0);
-
-        object_handle
-            .get_object(2)
-            .set_color(0.2, 0.2, 0.9)
-            .translate(1.0, 0.05, -3.0);
+        let light = Self::create_light(renderer);
+        let cubes = Self::create_main_object_handle(renderer);
 
         let mut rpass = RenderPass::new(
             AttachmentView::Dynamic,
@@ -173,17 +142,17 @@ impl Scene for MainScene {
             "examples/basic/shaders/material.frag",
             BindingEntries::new()
                 .add(camera.get_binding_layout())
-                .add(object_handle.get_binding_layout())
+                .add(cubes.get_binding_layout())
                 .add(light.get_binding_layout()),
             &vec![EntityDescriptor {
                 vertices,
                 indices,
                 bindings: vec![
                     camera.get_binding(),
-                    object_handle.get_binding(),
+                    cubes.get_binding(),
                     light.get_binding(),
                 ],
-                n_instances,
+                n_instances: cubes.get_n_instances(),
             }],
         );
         rpass.add_pipeline(material_pipeline);
@@ -197,7 +166,7 @@ impl Scene for MainScene {
 
             camera,
             light,
-            object_handle,
+            cubes,
         }
     }
 
@@ -252,7 +221,7 @@ impl Scene for MainScene {
 
         renderer.update_binding(&self.camera);
         renderer.update_binding(&self.light);
-        renderer.update_binding(&self.object_handle);
+        renderer.update_binding(&self.cubes);
     }
 }
 
@@ -276,6 +245,47 @@ impl MainScene {
             );
 
         camera
+    }
+
+    fn create_light(renderer: &Renderer) -> LightHandle {
+        let light_color = cgmath::Vector3 {
+            x: 1.0,
+            y: 1.0,
+            z: 1.0,
+        };
+        let light_direction = cgmath::Vector3 {
+            x: -1.0,
+            y: 1.5,
+            z: 0.5,
+        };
+        let mut light = LightHandle::new(renderer, 2, wgpu::ShaderStage::FRAGMENT);
+        light
+            .set_color(light_color.clone())
+            .set_direction(light_direction);
+
+        light
+    }
+
+    fn create_main_object_handle(renderer: &Renderer) -> InstancedObjectHandle {
+        let n_instances = 3;
+        let mut object_handle =
+            InstancedObjectHandle::new(&renderer, 1, wgpu::ShaderStage::VERTEX, n_instances);
+        object_handle
+            .get_object(0)
+            .set_color(0.8, 0.8, 0.9)
+            .translate(0.0, -1.0, 0.0)
+            .rescale(8.0, 0.1, 8.0);
+        object_handle
+            .get_object(1)
+            .set_color(0.2, 0.9, 0.2)
+            .translate(-1.0, 1.0, 0.0);
+
+        object_handle
+            .get_object(2)
+            .set_color(0.2, 0.2, 0.9)
+            .translate(1.0, 0.05, -3.0);
+
+        object_handle
     }
 }
 

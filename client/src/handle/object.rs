@@ -13,12 +13,12 @@ use wgpu;
 /*--------------------------------------------------------------------------------------------------*/
 
 #[repr(align(16))]
-struct ObjectState {
+pub struct Object {
     model: Matrix4<f32>,
     color: Vector3<f32>,
 }
 
-impl ObjectState {
+impl Object {
     fn new() -> Self {
         Self {
             model: Matrix4::from_scale(1.0),
@@ -29,27 +29,21 @@ impl ObjectState {
             },
         }
     }
-}
 
-pub struct Object<'a> {
-    state: &'a mut ObjectState,
-}
-
-impl Object<'_> {
     pub fn translate(&mut self, x: f32, y: f32, z: f32) -> &mut Self {
-        (*self.state).model = Matrix4::from_translation(Vector3 { x, y, z }) * self.state.model;
+        self.model = Matrix4::from_translation(Vector3 { x, y, z }) * self.model;
 
         self
     }
 
     pub fn set_color(&mut self, r: f32, g: f32, b: f32) -> &mut Self {
-        (*self.state).color = Vector3 { x: r, y: g, z: b };
+        self.color = Vector3 { x: r, y: g, z: b };
 
         self
     }
 
     pub fn rescale(&mut self, x: f32, y: f32, z: f32) -> &mut Self {
-        (*self.state).model = self.state.model * Matrix4::from_nonuniform_scale(x, y, z);
+        self.model = self.model * Matrix4::from_nonuniform_scale(x, y, z);
 
         self
     }
@@ -61,26 +55,24 @@ pub struct ObjectHandle {
     binding_layout: UniformBindingLayout,
     binding: UniformBinding,
 
-    state: ObjectState,
+    object: Object,
 }
 
 impl ObjectHandle {
     pub fn new(renderer: &Renderer, binding: u32, visibility: wgpu::ShaderStage) -> Self {
-        let binding_layout = UniformBindingLayout::new::<ObjectState>(binding, visibility);
+        let binding_layout = UniformBindingLayout::new::<Object>(binding, visibility);
         let binding = renderer.create_binding(&binding_layout);
 
         Self {
             binding_layout,
             binding,
 
-            state: ObjectState::new(),
+            object: Object::new(),
         }
     }
 
-    pub fn get_object(&mut self) -> Object {
-        Object {
-            state: &mut self.state,
-        }
+    pub fn get_object(&mut self) -> &mut Object {
+        &mut self.object
     }
 }
 
@@ -90,7 +82,7 @@ impl BindingHandle<UniformBinding> for ObjectHandle {
     }
 
     fn update(&self, write_queue: &wgpu::Queue) {
-        self.binding.update(&self.state, write_queue);
+        self.binding.update(&self.object, write_queue);
     }
 }
 
@@ -106,7 +98,7 @@ pub struct InstancedObjectHandle {
     binding_layout: InstanceArrayBindingLayout,
     binding: InstanceArrayBinding,
 
-    states: Vec<ObjectState>,
+    objects: Vec<Object>,
 }
 
 impl InstancedObjectHandle {
@@ -117,21 +109,23 @@ impl InstancedObjectHandle {
         n_instances: u32,
     ) -> Self {
         let binding_layout =
-            InstanceArrayBindingLayout::new::<ObjectState>(binding, visibility, n_instances);
+            InstanceArrayBindingLayout::new::<Object>(binding, visibility, n_instances);
         let binding = renderer.create_binding(&binding_layout);
 
         Self {
             binding_layout,
             binding,
 
-            states: (0..n_instances).map(|_| ObjectState::new()).collect(),
+            objects: (0..n_instances).map(|_| Object::new()).collect(),
         }
     }
 
-    pub fn get_object(&mut self, index: usize) -> Object {
-        Object {
-            state: &mut self.states[index],
-        }
+    pub fn get_object(&mut self, index: usize) -> &mut Object {
+        &mut self.objects[index]
+    }
+
+    pub fn get_n_instances(&self) -> u32 {
+        self.objects.len() as u32
     }
 }
 
@@ -141,7 +135,7 @@ impl BindingHandle<InstanceArrayBinding> for InstancedObjectHandle {
     }
 
     fn update(&self, write_queue: &wgpu::Queue) {
-        self.binding.update(&self.states, write_queue);
+        self.binding.update(&self.objects, write_queue);
     }
 }
 
