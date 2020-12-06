@@ -8,9 +8,9 @@ use rustgame::{
         object::{InstancedObjectHandle, ObjectHandle},
         BindingHandle, BindingLayoutHandle,
     },
-    render_pass::{RenderPass, AttachmentView},
     input::InputState,
     pipeline::{BindingEntries, EntityDescriptor, Vertex},
+    render_pass::{AttachmentView, RenderPass},
     renderer::Renderer,
     scene::Scene,
 };
@@ -111,22 +111,7 @@ struct MainScene {
 
 impl Scene for MainScene {
     fn new(renderer: &mut Renderer) -> Self {
-        let window_size = renderer.get_window_size();
-        let mut camera = CameraHandle::new(&renderer, 0, wgpu::ShaderStage::VERTEX);
-        camera
-            .set_perspective(75.0, window_size.width as f32 / window_size.height as f32)
-            .look_at(
-                cgmath::Point3 {
-                    x: 1.0,
-                    y: 6.0,
-                    z: -1.0,
-                },
-                cgmath::Point3 {
-                    x: 0.0,
-                    y: 0.0,
-                    z: 0.0,
-                },
-            );
+        let camera = Self::create_main_camera(renderer);
 
         let light_color = cgmath::Vector3 {
             x: 1.0,
@@ -138,7 +123,6 @@ impl Scene for MainScene {
             y: -0.3,
             z: 0.0,
         };
-
         let mut light = LightHandle::new(&renderer, 2, wgpu::ShaderStage::FRAGMENT);
         light
             .set_color(light_color.clone())
@@ -182,8 +166,6 @@ impl Scene for MainScene {
                 store: false,
             },
         );
-
-
 
         // ADD ENTRIES
         let (vertices, indices) = create_vertices();
@@ -297,6 +279,29 @@ impl Scene for MainScene {
         renderer.update_binding(&self.light);
         renderer.update_binding(&self.object_handle);
         renderer.update_binding(&self.light_object_handle);
+    }
+}
+
+impl MainScene {
+    fn create_main_camera(renderer: &Renderer) -> CameraHandle {
+        let window_size = renderer.get_window_size();
+        let mut camera = CameraHandle::new(&renderer, 0, wgpu::ShaderStage::VERTEX);
+        camera
+            .set_perspective(75.0, window_size.width as f32 / window_size.height as f32)
+            .look_at(
+                cgmath::Point3 {
+                    x: 1.0,
+                    y: 6.0,
+                    z: -1.0,
+                },
+                cgmath::Point3 {
+                    x: 0.0,
+                    y: 0.0,
+                    z: 0.0,
+                },
+            );
+
+        camera
     }
 }
 
