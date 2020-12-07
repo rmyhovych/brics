@@ -124,8 +124,8 @@ impl Scene for MainScene {
             3,
             wgpu::ShaderStage::FRAGMENT,
             wgpu::Extent3d {
-                width: 255,
-                height: 255,
+                width: 2048,
+                height: 2048,
                 depth: 1,
             },
             wgpu::TextureFormat::Depth32Float,
@@ -138,6 +138,7 @@ impl Scene for MainScene {
             &camera,
             &cubes,
             &light,
+            &light_camera,
             &depth_texture_layout,
             &depth_texture_binding,
         );
@@ -209,7 +210,7 @@ impl Scene for MainScene {
         }
 
         self.light_camera
-            .look_at_dir(self.camera.get_center(), self.light.get_direction());
+            .look_at_dir(self.camera.get_center(), -self.light.get_direction());
 
         renderer.update_binding(&self.camera);
         renderer.update_binding(&self.light_camera);
@@ -221,7 +222,7 @@ impl Scene for MainScene {
 impl MainScene {
     fn create_main_camera(renderer: &Renderer) -> CameraHandle {
         let window_size = renderer.get_window_size();
-        let mut camera = CameraHandle::new(&renderer, 0, wgpu::ShaderStage::VERTEX);
+        let mut camera = CameraHandle::new(&renderer, wgpu::ShaderStage::VERTEX);
         camera
             .set_perspective(75.0, window_size.width as f32 / window_size.height as f32)
             .look_at(
@@ -242,14 +243,14 @@ impl MainScene {
 
     fn create_light_camera(renderer: &Renderer) -> CameraHandle {
         let camera_cube_size = 20.0;
-        let mut camera = CameraHandle::new(&renderer, 0, wgpu::ShaderStage::VERTEX);
+        let mut camera = CameraHandle::new(&renderer, wgpu::ShaderStage::VERTEX);
         camera
             .set_ortho(
                 -camera_cube_size,
                 camera_cube_size,
                 -camera_cube_size,
                 camera_cube_size,
-                -camera_cube_size,
+                -2.0 * camera_cube_size,
                 camera_cube_size,
             )
             .look_at(
@@ -279,7 +280,7 @@ impl MainScene {
             y: 1.5,
             z: 0.5,
         };
-        let mut light = LightHandle::new(renderer, 2, wgpu::ShaderStage::FRAGMENT);
+        let mut light = LightHandle::new(renderer, wgpu::ShaderStage::FRAGMENT);
         light
             .set_color(light_color.clone())
             .set_direction(light_direction);
@@ -290,7 +291,7 @@ impl MainScene {
     fn create_main_object_handle(renderer: &Renderer) -> InstancedObjectHandle {
         let n_instances = 3;
         let mut object_handle =
-            InstancedObjectHandle::new(&renderer, 1, wgpu::ShaderStage::VERTEX, n_instances);
+            InstancedObjectHandle::new(&renderer, wgpu::ShaderStage::VERTEX, n_instances);
         object_handle
             .get_object(0)
             .set_color(0.8, 0.8, 0.9)
@@ -328,6 +329,14 @@ impl MainScene {
                 depth_compare: wgpu::CompareFunction::LessEqual,
                 stencil: wgpu::StencilStateDescriptor::default(),
             }),
+            Some(wgpu::RasterizationStateDescriptor {
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: wgpu::CullMode::Back,
+                depth_bias: 2, // corresponds to bilinear filtering
+                depth_bias_slope_scale: 2.0,
+                depth_bias_clamp: 0.0,
+                clamp_depth: false,
+            }),
             &vec![EntityDescriptor {
                 vertices,
                 indices,
@@ -342,6 +351,7 @@ impl MainScene {
         camera: &CameraHandle,
         cubes: &InstancedObjectHandle,
         light: &LightHandle,
+        light_camera: &CameraHandle,
 
         shadow_texture_layout: &TextureBindingLayout,
         shadow_texture: &TextureBinding,
@@ -372,8 +382,9 @@ impl MainScene {
                 .add(camera.get_binding_layout())
                 .add(cubes.get_binding_layout())
                 .add(light.get_binding_layout())
-                .add(&sampler_layout)
-                .add(shadow_texture_layout),
+                .add(light_camera.get_binding_layout())
+                .add(shadow_texture_layout)
+                .add(&sampler_layout),
             Some(wgpu::ColorStateDescriptor {
                 format: Renderer::get_swapchain_color_format(),
                 color_blend: wgpu::BlendDescriptor::REPLACE,
@@ -386,6 +397,11 @@ impl MainScene {
                 depth_compare: wgpu::CompareFunction::Less,
                 stencil: wgpu::StencilStateDescriptor::default(),
             }),
+            Some(wgpu::RasterizationStateDescriptor {
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: wgpu::CullMode::Back,
+                ..Default::default()
+            }),
             &vec![EntityDescriptor {
                 vertices,
                 indices,
@@ -393,6 +409,7 @@ impl MainScene {
                     camera.get_binding(),
                     cubes.get_binding(),
                     light.get_binding(),
+                    light_camera.get_binding(),
                     shadow_texture,
                     &sampler_binding,
                 ],

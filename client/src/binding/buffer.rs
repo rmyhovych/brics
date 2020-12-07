@@ -1,7 +1,6 @@
 use super::{Binding, BindingLayout};
 
 struct BufferBindingLayout {
-    binding: u32,
     visibility: wgpu::ShaderStage,
 
     usage: wgpu::BufferUsage,
@@ -26,10 +25,9 @@ pub struct UniformBindingLayout {
 }
 
 impl UniformBindingLayout {
-    pub fn new<T>(binding: u32, visibility: wgpu::ShaderStage) -> UniformBindingLayout {
+    pub fn new<T>(visibility: wgpu::ShaderStage) -> UniformBindingLayout {
         UniformBindingLayout {
             buffer_binding_layout: BufferBindingLayout {
-                binding,
                 visibility,
                 usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
                 buffer_size: std::mem::size_of::<T>() as wgpu::BufferAddress,
@@ -41,7 +39,7 @@ impl UniformBindingLayout {
 impl BindingLayout<UniformBinding> for UniformBindingLayout {
     fn get_entry(&self) -> wgpu::BindGroupLayoutEntry {
         wgpu::BindGroupLayoutEntry {
-            binding: self.buffer_binding_layout.binding,
+            binding: 0,
             visibility: self.buffer_binding_layout.visibility,
             ty: wgpu::BindingType::UniformBuffer {
                 dynamic: false,
@@ -86,14 +84,9 @@ pub struct InstanceArrayBindingLayout {
 }
 
 impl InstanceArrayBindingLayout {
-    pub fn new<T>(
-        binding: u32,
-        visibility: wgpu::ShaderStage,
-        n_instances: u32,
-    ) -> InstanceArrayBindingLayout {
+    pub fn new<T>(visibility: wgpu::ShaderStage, n_instances: u32) -> InstanceArrayBindingLayout {
         InstanceArrayBindingLayout {
             buffer_binding_layout: BufferBindingLayout {
-                binding,
                 visibility,
 
                 usage: wgpu::BufferUsage::STORAGE | wgpu::BufferUsage::COPY_DST,
@@ -106,7 +99,7 @@ impl InstanceArrayBindingLayout {
 impl BindingLayout<InstanceArrayBinding> for InstanceArrayBindingLayout {
     fn get_entry(&self) -> wgpu::BindGroupLayoutEntry {
         wgpu::BindGroupLayoutEntry {
-            binding: self.buffer_binding_layout.binding,
+            binding: 0,
             visibility: self.buffer_binding_layout.visibility,
             ty: wgpu::BindingType::StorageBuffer {
                 dynamic: false,

@@ -38,9 +38,9 @@ pub struct CameraHandle {
 }
 
 impl CameraHandle {
-    pub fn new(renderer: &Renderer, binding: u32, visibility: wgpu::ShaderStage) -> Self {
+    pub fn new(renderer: &Renderer, visibility: wgpu::ShaderStage) -> Self {
         let uniform_binding_layout: UniformBindingLayout =
-            UniformBindingLayout::new::<CameraState>(binding, visibility);
+            UniformBindingLayout::new::<CameraState>(visibility);
         let uniform_binding = renderer.create_binding(&uniform_binding_layout);
 
         Self {

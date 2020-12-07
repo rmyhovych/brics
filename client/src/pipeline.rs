@@ -49,7 +49,10 @@ impl BindingEntries {
         mut self,
         binding_layout: &B,
     ) -> Self {
-        self.entries.push(binding_layout.get_entry());
+        let mut layout_entry: wgpu::BindGroupLayoutEntry = binding_layout.get_entry();
+        layout_entry.binding = self.entries.len() as u32;
+
+        self.entries.push(layout_entry);
 
         self
     }
@@ -72,6 +75,7 @@ impl Pipeline {
 
         color_state: Option<wgpu::ColorStateDescriptor>,
         depth_stencil_state: Option<wgpu::DepthStencilStateDescriptor>,
+        rasterization_state: Option<wgpu::RasterizationStateDescriptor>,
     ) -> Pipeline {
         let attribute_descriptors = T::get_attribute_descriptors();
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -107,11 +111,7 @@ impl Pipeline {
                 module: &shaders.fragment_module,
                 entry_point: "main",
             }),
-            rasterization_state: Some(wgpu::RasterizationStateDescriptor {
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: wgpu::CullMode::Back,
-                ..Default::default()
-            }),
+            rasterization_state,
             primitive_topology: wgpu::PrimitiveTopology::TriangleList,
             color_states: color_states_vec.as_slice(),
             depth_stencil_state,

@@ -21,6 +21,10 @@ impl Renderer {
 
         let window = winit::window::WindowBuilder::new()
             .with_title("rustgame")
+            .with_inner_size(winit::dpi::PhysicalSize {
+                width: 1920,
+                height: 1080,
+            })
             .build(event_loop)
             .unwrap();
 
@@ -146,6 +150,7 @@ impl Renderer {
 
         color_state: Option<wgpu::ColorStateDescriptor>,
         depth_stencil_state: Option<wgpu::DepthStencilStateDescriptor>,
+        rasterization_state: Option<wgpu::RasterizationStateDescriptor>,
 
         entity_descriptors: &Vec<pipeline::EntityDescriptor<T>>,
     ) -> pipeline::Pipeline {
@@ -165,6 +170,7 @@ impl Renderer {
             &binding_entries,
             color_state,
             depth_stencil_state,
+            rasterization_state,
         );
 
         for desc in entity_descriptors {

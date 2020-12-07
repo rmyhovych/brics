@@ -7,6 +7,7 @@ layout(location = 0) out vec3 v_out_Color;
 layout(location = 1) out vec3 v_out_Norm;
 layout(location = 2) out vec3 v_out_FragPos;
 layout(location = 3) out vec3 v_out_CamPosition;
+layout(location = 4) out mat4 m_out_PVLight;
 
 layout(set = 0, binding = 0) uniform u_Camera {
     mat4 m_in_PV;
@@ -22,8 +23,14 @@ layout(set = 0, binding = 1) buffer b_ObjectStates {
     ObjectState s_States[];
 };
 
+layout(set = 0, binding = 3) uniform u_LightCamera {
+    mat4 m_in_PVLight;
+    vec3 v_in_CamPositionLight;
+};
 
 void main() {
+    m_out_PVLight = m_in_PVLight;
+
     ObjectState current_state = s_States[gl_InstanceIndex];
 
     v_out_Color = current_state.v_in_Color;
