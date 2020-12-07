@@ -2,18 +2,17 @@ extern crate rustgame;
 
 use rustgame::{
     application::Application,
-    binding::{
-        sampler::{SamplerAddressMode, SamplerBinding, SamplerBindingLayout, SamplerFilterMode},
-        texture::{TextureBinding, TextureBindingLayout},
-    },
+    binding::sampler::{SamplerAddressMode, SamplerFilterMode},
     handle::{
         camera::CameraHandle,
         light::LightHandle,
         object::{InstancedObjectHandle, ObjectHandle},
+        sampler::SamplerHandle,
+        texture::TextureHandle,
         BindingHandle, BindingLayoutHandle,
     },
     input::InputState,
-    pipeline::{BindingEntries, EntityDescriptor, Pipeline, Vertex},
+    pipeline::{BindingEntries, Pipeline, Vertex},
     render_pass::{AttachmentView, RenderPass},
     renderer::Renderer,
     scene::Scene,
@@ -120,8 +119,8 @@ impl Scene for MainScene {
         let light = Self::create_light(renderer);
         let cubes = Self::create_main_object_handle(renderer);
 
-        let depth_texture_layout = TextureBindingLayout::new_sampled_output(
-            3,
+        let depth_texture_handle = TextureHandle::new(
+            renderer,
             wgpu::ShaderStage::FRAGMENT,
             wgpu::Extent3d {
                 width: 2048,
@@ -130,20 +129,57 @@ impl Scene for MainScene {
             },
             wgpu::TextureFormat::Depth32Float,
         );
-        let depth_texture_binding = renderer.create_binding(&depth_texture_layout);
 
-        let shadow_pipeline = Self::create_shadow_pipeline(renderer, &light_camera, &cubes);
-        let material_pipeline = Self::create_material_pipeline(
+        let sampler_handle = SamplerHandle::new(
             renderer,
-            &camera,
-            &cubes,
-            &light,
-            &light_camera,
-            &depth_texture_layout,
-            &depth_texture_binding,
+            wgpu::ShaderStage::FRAGMENT,
+            SamplerAddressMode {
+                u: wgpu::AddressMode::ClampToEdge,
+                v: wgpu::AddressMode::ClampToEdge,
+                w: wgpu::AddressMode::ClampToEdge,
+            },
+            SamplerFilterMode {
+                mag: wgpu::FilterMode::Linear,
+                min: wgpu::FilterMode::Linear,
+                mipmap: wgpu::FilterMode::Nearest,
+            },
+            Some(wgpu::CompareFunction::LessEqual),
         );
 
-        let texture_view = depth_texture_binding.create_texture_view();
+        let (vertices, indices) = create_vertices();
+        let cube_geometry = renderer.create_geometry(vertices, indices);
+
+        let mut shadow_pipeline = Self::create_shadow_pipeline(renderer, &light_camera, &cubes);
+        renderer.add_pipeline_entity(
+            &mut shadow_pipeline,
+            &cube_geometry,
+            vec![light_camera.get_binding(), cubes.get_binding()],
+            cubes.get_n_instances(),
+        );
+
+        let binding_entries = BindingEntries::new()
+            .add(camera.get_binding_layout())
+            .add(cubes.get_binding_layout())
+            .add(light.get_binding_layout())
+            .add(light_camera.get_binding_layout())
+            .add(depth_texture_handle.get_binding_layout())
+            .add(sampler_handle.get_binding_layout());
+        let mut material_pipeline = Self::create_material_pipeline(renderer, binding_entries);
+        renderer.add_pipeline_entity(
+            &mut material_pipeline,
+            &cube_geometry,
+            vec![
+                camera.get_binding(),
+                cubes.get_binding(),
+                light.get_binding(),
+                light_camera.get_binding(),
+                depth_texture_handle.get_binding(),
+                sampler_handle.get_binding(),
+            ],
+            cubes.get_n_instances(),
+        );
+
+        let texture_view = depth_texture_handle.get_binding().create_texture_view();
         Self::create_shadow_render_pass(renderer, shadow_pipeline, texture_view);
 
         Self::create_material_render_pass(renderer, material_pipeline);
@@ -206,7 +242,9 @@ impl Scene for MainScene {
                 movement = movement.normalize_to(self.movement_speed);
             }
 
-            self.camera.translate(movement.x, movement.y, movement.z);
+            self.cubes
+                .get_object(1)
+                .translate(movement.x, movement.y, movement.z);
         }
 
         self.light_camera
@@ -315,7 +353,6 @@ impl MainScene {
         light_camera: &CameraHandle,
         cubes: &InstancedObjectHandle,
     ) -> Pipeline {
-        let (vertices, indices) = create_vertices();
         renderer.create_pipeline::<VertexBasic>(
             "examples/basic/shaders/shadow.vert",
             "examples/basic/shaders/shadow.frag",
@@ -337,54 +374,14 @@ impl MainScene {
                 depth_bias_clamp: 0.0,
                 clamp_depth: false,
             }),
-            &vec![EntityDescriptor {
-                vertices,
-                indices,
-                bindings: vec![light_camera.get_binding(), cubes.get_binding()],
-                n_instances: cubes.get_n_instances(),
-            }],
         )
     }
 
-    fn create_material_pipeline(
-        renderer: &Renderer,
-        camera: &CameraHandle,
-        cubes: &InstancedObjectHandle,
-        light: &LightHandle,
-        light_camera: &CameraHandle,
-
-        shadow_texture_layout: &TextureBindingLayout,
-        shadow_texture: &TextureBinding,
-    ) -> Pipeline {
-        let sampler_layout = SamplerBindingLayout::new(
-            4,
-            wgpu::ShaderStage::FRAGMENT,
-            SamplerAddressMode {
-                u: wgpu::AddressMode::ClampToEdge,
-                v: wgpu::AddressMode::ClampToEdge,
-                w: wgpu::AddressMode::ClampToEdge,
-            },
-            SamplerFilterMode {
-                mag: wgpu::FilterMode::Linear,
-                min: wgpu::FilterMode::Linear,
-                mipmap: wgpu::FilterMode::Nearest,
-            },
-            Some(wgpu::CompareFunction::LessEqual),
-        );
-        let sampler_binding = renderer.create_binding(&sampler_layout);
-
-        let (vertices, indices) = create_vertices();
-
+    fn create_material_pipeline(renderer: &Renderer, binding_entries: BindingEntries) -> Pipeline {
         renderer.create_pipeline::<VertexBasic>(
             "examples/basic/shaders/material.vert",
             "examples/basic/shaders/material.frag",
-            BindingEntries::new()
-                .add(camera.get_binding_layout())
-                .add(cubes.get_binding_layout())
-                .add(light.get_binding_layout())
-                .add(light_camera.get_binding_layout())
-                .add(shadow_texture_layout)
-                .add(&sampler_layout),
+            binding_entries,
             Some(wgpu::ColorStateDescriptor {
                 format: Renderer::get_swapchain_color_format(),
                 color_blend: wgpu::BlendDescriptor::REPLACE,
@@ -402,19 +399,6 @@ impl MainScene {
                 cull_mode: wgpu::CullMode::Back,
                 ..Default::default()
             }),
-            &vec![EntityDescriptor {
-                vertices,
-                indices,
-                bindings: vec![
-                    camera.get_binding(),
-                    cubes.get_binding(),
-                    light.get_binding(),
-                    light_camera.get_binding(),
-                    shadow_texture,
-                    &sampler_binding,
-                ],
-                n_instances: cubes.get_n_instances(),
-            }],
         )
     }
 

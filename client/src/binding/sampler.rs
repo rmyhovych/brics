@@ -23,14 +23,13 @@ pub struct SamplerBindingLayout {
 
 impl SamplerBindingLayout {
     pub fn new(
-        binding: u32,
         visibility: wgpu::ShaderStage,
         address_mode: SamplerAddressMode,
         filter_mode: SamplerFilterMode,
         compare: Option<wgpu::CompareFunction>,
     ) -> Self {
         Self {
-            binding,
+            binding: 0,
             visibility,
 
             address_mode,

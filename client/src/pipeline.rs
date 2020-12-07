@@ -1,5 +1,3 @@
-use wgpu::{self, util::DeviceExt};
-
 use crate::binding;
 
 pub struct Shaders {
@@ -139,25 +137,24 @@ impl Pipeline {
             .for_each(|entity| entity.render(render_pass));
     }
 
-    pub fn add_entity<T: Vertex>(
+    pub fn add_entity(
         &mut self,
         device: &wgpu::Device,
 
-        descriptor: &EntityDescriptor<T>,
-    ) {
-        let vertex_buffer =
-            self.create_device_buffer(device, &descriptor.vertices, wgpu::BufferUsage::VERTEX);
-        let index_buffer =
-            self.create_device_buffer(device, &descriptor.indices, wgpu::BufferUsage::INDEX);
+        geometry: &Geometry,
+        bindings: Vec<&dyn binding::Binding>,
 
-        let bind_group = self.create_bind_group(device, &descriptor.bindings);
+        n_instances: u32,
+    ) {
+        let bind_group = self.create_bind_group(device, &bindings);
 
         self.entities.push(Entity {
-            vertex_buffer,
-            index_buffer,
+            vertex_buffer: std::rc::Rc::clone(&geometry.vertex_buffer),
+            index_buffer: std::rc::Rc::clone(&geometry.index_buffer),
 
-            n_indices: descriptor.indices.len() as u32,
-            n_instances: descriptor.n_instances,
+            n_indices: geometry.n_indices,
+
+            n_instances,
 
             bind_group,
         });
@@ -186,39 +183,30 @@ impl Pipeline {
             entries: entries.as_slice(),
         })
     }
-
-    fn create_device_buffer<K>(
-        &self,
-        device: &wgpu::Device,
-        contents: &Vec<K>,
-        usage: wgpu::BufferUsage,
-    ) -> wgpu::Buffer {
-        device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: None,
-            contents: unsafe {
-                std::slice::from_raw_parts(
-                    contents.as_slice().as_ptr() as *const u8,
-                    std::mem::size_of::<K>() * contents.len(),
-                )
-            },
-            usage,
-        })
-    }
 }
 
 /*--------------------------------------------------------------------------------------------------*/
 
-pub struct EntityDescriptor<'a, T: Vertex> {
-    pub vertices: Vec<T>,
-    pub indices: Vec<u16>,
-    pub bindings: Vec<&'a dyn binding::Binding>,
+pub struct Geometry {
+    vertex_buffer: std::rc::Rc<wgpu::Buffer>,
+    index_buffer: std::rc::Rc<wgpu::Buffer>,
 
-    pub n_instances: u32,
+    n_indices: u32,
+}
+
+impl Geometry {
+    pub fn new(vertex_buffer: wgpu::Buffer, index_buffer: wgpu::Buffer, n_indices: u32) -> Self {
+        Self {
+            vertex_buffer: std::rc::Rc::new(vertex_buffer),
+            index_buffer: std::rc::Rc::new(index_buffer),
+            n_indices,
+        }
+    }
 }
 
 struct Entity {
-    vertex_buffer: wgpu::Buffer,
-    index_buffer: wgpu::Buffer,
+    vertex_buffer: std::rc::Rc<wgpu::Buffer>,
+    index_buffer: std::rc::Rc<wgpu::Buffer>,
 
     n_indices: u32,
     n_instances: u32,

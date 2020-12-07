@@ -12,13 +12,12 @@ pub struct TextureBindingLayout {
 
 impl TextureBindingLayout {
     pub fn new_sampled_output(
-        binding: u32,
         visibility: wgpu::ShaderStage,
         size: wgpu::Extent3d,
         format: wgpu::TextureFormat,
     ) -> Self {
         Self {
-            binding,
+            binding: 0,
             visibility,
             size,
 
@@ -86,7 +85,7 @@ impl TextureBinding {
             base_mip_level: 0,
             level_count: None,
             base_array_layer: 0,
-            array_layer_count: std::num::NonZeroU32::new(1),
+            array_layer_count: None,
         })
     }
 }

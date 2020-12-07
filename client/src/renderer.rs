@@ -1,4 +1,4 @@
-use wgpu;
+use wgpu::{self, util::DeviceExt};
 use winit;
 
 use crate::{binding, handle, pipeline, render_pass, shader};
@@ -142,6 +142,29 @@ impl Renderer {
         self.render_passes.push(rpass);
     }
 
+    pub fn create_geometry<T: pipeline::Vertex>(
+        &self,
+        vertices: Vec<T>,
+        indices: Vec<u16>,
+    ) -> pipeline::Geometry {
+        let vertex_buffer = self.create_device_buffer(&vertices, wgpu::BufferUsage::VERTEX);
+        let index_buffer = self.create_device_buffer(&indices, wgpu::BufferUsage::INDEX);
+
+        let n_indices = indices.len() as u32;
+
+        pipeline::Geometry::new(vertex_buffer, index_buffer, n_indices)
+    }
+
+    pub fn add_pipeline_entity(
+        &self,
+        pipeline: &mut pipeline::Pipeline,
+        geometry: &pipeline::Geometry,
+        bindings: Vec<&dyn binding::Binding>,
+        n_instances: u32,
+    ) {
+        pipeline.add_entity(&self.device, geometry, bindings, n_instances);
+    }
+
     pub fn create_pipeline<T: pipeline::Vertex>(
         &self,
         vertex_shader_path: &str,
@@ -151,8 +174,6 @@ impl Renderer {
         color_state: Option<wgpu::ColorStateDescriptor>,
         depth_stencil_state: Option<wgpu::DepthStencilStateDescriptor>,
         rasterization_state: Option<wgpu::RasterizationStateDescriptor>,
-
-        entity_descriptors: &Vec<pipeline::EntityDescriptor<T>>,
     ) -> pipeline::Pipeline {
         let mut shader_compiler = shader::ShaderCompiler::new();
         let shaders = pipeline::Shaders {
@@ -164,20 +185,14 @@ impl Renderer {
             ),
         };
 
-        let mut pipeline = pipeline::Pipeline::new::<T>(
+        pipeline::Pipeline::new::<T>(
             &self.device,
             &shaders,
             &binding_entries,
             color_state,
             depth_stencil_state,
             rasterization_state,
-        );
-
-        for desc in entity_descriptors {
-            pipeline.add_entity(&self.device, &desc);
-        }
-
-        pipeline
+        )
     }
 
     pub fn create_depth_texture_view(&self) -> wgpu::TextureView {
@@ -212,5 +227,19 @@ impl Renderer {
         );
 
         (optional_features & adapter_features) | required_features
+    }
+
+    fn create_device_buffer<K>(&self, contents: &Vec<K>, usage: wgpu::BufferUsage) -> wgpu::Buffer {
+        self.device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: None,
+                contents: unsafe {
+                    std::slice::from_raw_parts(
+                        contents.as_slice().as_ptr() as *const u8,
+                        std::mem::size_of::<K>() * contents.len(),
+                    )
+                },
+                usage,
+            })
     }
 }
