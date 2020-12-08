@@ -84,7 +84,7 @@ impl BindingHandle<UniformBinding> for LightHandle {
         &self.binding
     }
 
-    fn update(&self, write_queue: &wgpu::Queue) {
+    fn update(&mut self, write_queue: &wgpu::Queue) {
         self.binding.update(&self.state, write_queue);
     }
 }

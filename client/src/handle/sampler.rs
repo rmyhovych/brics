@@ -37,7 +37,7 @@ impl BindingHandle<SamplerBinding> for SamplerHandle {
         &self.binding
     }
 
-    fn update(&self, _: &wgpu::Queue) {}
+    fn update(&mut self, _: &wgpu::Queue) {}
 }
 
 impl BindingLayoutHandle<SamplerBinding, SamplerBindingLayout> for SamplerHandle {

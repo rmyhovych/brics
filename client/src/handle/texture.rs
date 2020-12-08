@@ -33,7 +33,7 @@ impl BindingHandle<TextureBinding> for TextureHandle {
         &self.binding
     }
 
-    fn update(&self, _: &wgpu::Queue) {
+    fn update(&mut self, _: &wgpu::Queue) {
         // TODO
     }
 }

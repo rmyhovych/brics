@@ -4,14 +4,11 @@ use rustgame::{
     application::Application,
     binding::sampler::{SamplerAddressMode, SamplerFilterMode},
     handle::{
-        camera::CameraHandle,
-        light::LightHandle,
-        object::{InstancedObjectHandle, ObjectHandle},
-        sampler::SamplerHandle,
-        texture::TextureHandle,
-        BindingHandle, BindingLayoutHandle,
+        camera::CameraHandle, light::LightHandle, object::ObjectHandle, sampler::SamplerHandle,
+        texture::TextureHandle, BindingHandle, BindingLayoutHandle,
     },
     input::InputState,
+    object::{Controller, Object},
     pipeline::{BindingEntries, Pipeline, Vertex},
     render_pass::{AttachmentView, RenderPass},
     renderer::Renderer,
@@ -22,6 +19,8 @@ use cgmath::{self, InnerSpace};
 
 use wgpu;
 use winit::{self, event::VirtualKeyCode};
+
+type Rcrc<T> = std::rc::Rc<std::cell::RefCell<T>>;
 
 struct VertexBasic {
     _position: cgmath::Point3<f32>,
@@ -109,7 +108,8 @@ struct MainScene {
     light_camera: CameraHandle,
 
     light: LightHandle,
-    cubes: InstancedObjectHandle,
+    cubes: Rcrc<ObjectHandle>,
+    main_cube_controller: Controller,
 }
 
 impl Scene for MainScene {
@@ -149,17 +149,18 @@ impl Scene for MainScene {
         let (vertices, indices) = create_vertices();
         let cube_geometry = renderer.create_geometry(vertices, indices);
 
-        let mut shadow_pipeline = Self::create_shadow_pipeline(renderer, &light_camera, &cubes);
+        let mut shadow_pipeline =
+            Self::create_shadow_pipeline(renderer, &light_camera, &cubes.borrow());
         renderer.add_pipeline_entity(
             &mut shadow_pipeline,
             &cube_geometry,
-            vec![light_camera.get_binding(), cubes.get_binding()],
-            cubes.get_n_instances(),
+            vec![light_camera.get_binding(), cubes.borrow().get_binding()],
+            cubes.borrow().get_n_instances(),
         );
 
         let binding_entries = BindingEntries::new()
             .add(camera.get_binding_layout())
-            .add(cubes.get_binding_layout())
+            .add(cubes.borrow().get_binding_layout())
             .add(light.get_binding_layout())
             .add(light_camera.get_binding_layout())
             .add(depth_texture_handle.get_binding_layout())
@@ -170,13 +171,13 @@ impl Scene for MainScene {
             &cube_geometry,
             vec![
                 camera.get_binding(),
-                cubes.get_binding(),
+                cubes.borrow().get_binding(),
                 light.get_binding(),
                 light_camera.get_binding(),
                 depth_texture_handle.get_binding(),
                 sampler_handle.get_binding(),
             ],
-            cubes.get_n_instances(),
+            cubes.borrow().get_n_instances(),
         );
 
         let texture_view = depth_texture_handle.get_binding().create_texture_view();
@@ -184,6 +185,13 @@ impl Scene for MainScene {
 
         Self::create_material_render_pass(renderer, material_pipeline);
 
+        let main_cube_controller = Controller::new(
+            &cubes,
+            1,
+            Box::new(|obj: &mut Object| {
+                obj.translate(0.01, 0.0, 0.0);
+            }),
+        );
         Self {
             previous_mouse_input: None,
             angle_multiplier: 0.004,
@@ -193,6 +201,7 @@ impl Scene for MainScene {
             light_camera,
             light,
             cubes,
+            main_cube_controller,
         }
     }
 
@@ -241,19 +250,17 @@ impl Scene for MainScene {
             if movement.magnitude2() > 0.0 {
                 movement = movement.normalize_to(self.movement_speed);
             }
-
-            self.cubes
-                .get_object(1)
-                .translate(movement.x, movement.y, movement.z);
         }
 
         self.light_camera
             .look_at_dir(self.camera.get_center(), -self.light.get_direction());
 
-        renderer.update_binding(&self.camera);
-        renderer.update_binding(&self.light_camera);
-        renderer.update_binding(&self.light);
-        renderer.update_binding(&self.cubes);
+        self.main_cube_controller.update();
+
+        renderer.update_binding(&mut self.camera);
+        renderer.update_binding(&mut self.light_camera);
+        renderer.update_binding(&mut self.light);
+        renderer.update_handle_ref(&self.cubes);
     }
 }
 
@@ -326,24 +333,27 @@ impl MainScene {
         light
     }
 
-    fn create_main_object_handle(renderer: &Renderer) -> InstancedObjectHandle {
+    fn create_main_object_handle(renderer: &Renderer) -> Rcrc<ObjectHandle> {
         let n_instances = 3;
-        let mut object_handle =
-            InstancedObjectHandle::new(&renderer, wgpu::ShaderStage::VERTEX, n_instances);
-        object_handle
-            .get_object(0)
+        let object_handle = std::rc::Rc::new(std::cell::RefCell::new(ObjectHandle::new(
+            &renderer,
+            wgpu::ShaderStage::VERTEX,
+            n_instances,
+        )));
+        let mut object = Object::new(&object_handle, 0);
+        object
             .set_color(0.8, 0.8, 0.9)
             .translate(0.0, -1.0, 0.0)
             .rescale(8.0, 0.1, 8.0);
-        object_handle
-            .get_object(1)
-            .set_color(0.2, 0.9, 0.2)
-            .translate(-1.0, 1.0, 0.0);
+        object.update_handle();
 
-        object_handle
-            .get_object(2)
-            .set_color(0.2, 0.2, 0.9)
-            .translate(1.0, 0.05, -3.0);
+        let mut object = Object::new(&object_handle, 1);
+        object.set_color(0.2, 0.9, 0.2).translate(-1.0, 1.0, 0.0);
+        object.update_handle();
+
+        let mut object = Object::new(&object_handle, 2);
+        object.set_color(0.2, 0.2, 0.9).translate(1.0, 0.05, -3.0);
+        object.update_handle();
 
         object_handle
     }
@@ -351,7 +361,7 @@ impl MainScene {
     fn create_shadow_pipeline(
         renderer: &Renderer,
         light_camera: &CameraHandle,
-        cubes: &InstancedObjectHandle,
+        cubes: &ObjectHandle,
     ) -> Pipeline {
         renderer.create_pipeline::<VertexBasic>(
             "examples/basic/shaders/shadow.vert",

@@ -15,5 +15,5 @@ pub trait BindingLayoutHandle<B: Binding, L: BindingLayout<B>> {
 pub trait BindingHandle<B: Binding> {
     fn get_binding(&self) -> &B;
 
-    fn update(&self, write_queue: &wgpu::Queue);
+    fn update(&mut self, write_queue: &wgpu::Queue);
 }

@@ -126,9 +126,16 @@ impl Renderer {
 
     pub fn update_binding<B: binding::Binding>(
         &self,
-        binding_handle: &impl handle::BindingHandle<B>,
+        binding_handle: &mut impl handle::BindingHandle<B>,
     ) {
         binding_handle.update(&self.queue);
+    }
+
+    pub fn update_handle_ref<B: binding::Binding>(
+        &self,
+        binding_handle: &std::rc::Rc<std::cell::RefCell<impl handle::BindingHandle<B>>>,
+    ) {
+        binding_handle.borrow_mut().update(&self.queue);
     }
 
     pub fn create_binding<B: binding::Binding>(

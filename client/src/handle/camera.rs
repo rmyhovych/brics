@@ -158,7 +158,7 @@ impl BindingHandle<UniformBinding> for CameraHandle {
         &self.uniform_binding
     }
 
-    fn update(&self, write_queue: &wgpu::Queue) {
+    fn update(&mut self, write_queue: &wgpu::Queue) {
         let uniform_data = CameraState::new(&self.projection, &self.eye, &self.center);
         self.uniform_binding.update(&uniform_data, write_queue);
     }
