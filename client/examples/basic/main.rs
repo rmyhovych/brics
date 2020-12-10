@@ -109,7 +109,7 @@ struct MainScene {
 
     light: LightHandle,
     cubes: Rcrc<ObjectHandle>,
-    main_cube_controller: Controller,
+    controllers: Vec<Controller>,
 }
 
 impl Scene for MainScene {
@@ -201,7 +201,7 @@ impl Scene for MainScene {
             light_camera,
             light,
             cubes,
-            main_cube_controller,
+            controllers: vec![main_cube_controller],
         }
     }
 
@@ -255,7 +255,9 @@ impl Scene for MainScene {
         self.light_camera
             .look_at_dir(self.camera.get_center(), -self.light.get_direction());
 
-        self.main_cube_controller.update();
+        self.controllers
+            .iter_mut()
+            .for_each(|controller| controller.update());
 
         renderer.update_binding(&mut self.camera);
         renderer.update_binding(&mut self.light_camera);

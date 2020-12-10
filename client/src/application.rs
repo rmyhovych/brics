@@ -24,6 +24,7 @@ pub trait Application<T: 'static + Scene> {
                 winit::event::Event::MainEventsCleared => {
                     redraw_handler.request(&renderer);
                 }
+
                 winit::event::Event::WindowEvent { event, .. } => match event {
                     winit::event::WindowEvent::CloseRequested => {
                         *control_flow = winit::event_loop::ControlFlow::Exit;
