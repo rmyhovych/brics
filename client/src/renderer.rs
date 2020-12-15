@@ -124,18 +124,8 @@ impl Renderer {
         self.window.inner_size()
     }
 
-    pub fn update_binding<B: binding::Binding>(
-        &self,
-        binding_handle: &mut impl handle::BindingHandle<B>,
-    ) {
+    pub fn update_handle<T: handle::BindingHandle>(&self, binding_handle: &T) {
         binding_handle.update(&self.queue);
-    }
-
-    pub fn update_handle_ref<B: binding::Binding>(
-        &self,
-        binding_handle: &std::rc::Rc<std::cell::RefCell<impl handle::BindingHandle<B>>>,
-    ) {
-        binding_handle.borrow_mut().update(&self.queue);
     }
 
     pub fn create_binding<B: binding::Binding>(
@@ -166,17 +156,16 @@ impl Renderer {
         &self,
         pipeline: &mut pipeline::Pipeline,
         geometry: &pipeline::Geometry,
-        bindings: Vec<&dyn binding::Binding>,
-        n_instances: u32,
+        handles: Vec<&dyn handle::BindingHandle>,
     ) {
-        pipeline.add_entity(&self.device, geometry, bindings, n_instances);
+        pipeline.add_entity(&self.device, geometry, handles, 1);
     }
 
     pub fn create_pipeline<T: pipeline::Vertex>(
         &self,
         vertex_shader_path: &str,
         fragment_shader_path: &str,
-        binding_entries: pipeline::BindingEntries,
+        binding_entries: pipeline::BindingLayoutEntries,
 
         color_state: Option<wgpu::ColorStateDescriptor>,
         depth_stencil_state: Option<wgpu::DepthStencilStateDescriptor>,

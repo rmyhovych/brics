@@ -1,47 +1,64 @@
-use super::{BindingHandle, BindingLayoutHandle};
+use super::{BindingHandle, BindingHandleLayout};
 use crate::{
-    binding::sampler::{
-        SamplerAddressMode, SamplerBinding, SamplerBindingLayout, SamplerFilterMode,
+    binding::{
+        sampler::{SamplerAddressMode, SamplerBinding, SamplerBindingLayout, SamplerFilterMode},
+        Binding,
     },
     renderer::Renderer,
 };
 
 /*--------------------------------------------------------------------------------------------------*/
 
-pub struct SamplerHandle {
+pub struct SamplerHandleLayout {
     binding_layout: SamplerBindingLayout,
-    binding: SamplerBinding,
 }
 
-impl SamplerHandle {
+impl SamplerHandleLayout {
     pub fn new(
-        renderer: &Renderer,
         visibility: wgpu::ShaderStage,
         address_mode: SamplerAddressMode,
         filter_mode: SamplerFilterMode,
         compare: Option<wgpu::CompareFunction>,
     ) -> Self {
-        let binding_layout =
-            SamplerBindingLayout::new(visibility, address_mode, filter_mode, compare);
-        let binding = renderer.create_binding(&binding_layout);
-
         Self {
-            binding_layout,
-            binding,
+            binding_layout: SamplerBindingLayout::new(
+                visibility,
+                address_mode,
+                filter_mode,
+                compare,
+            ),
         }
     }
 }
 
-impl BindingHandle<SamplerBinding> for SamplerHandle {
-    fn get_binding(&self) -> &SamplerBinding {
-        &self.binding
-    }
-
-    fn update(&mut self, _: &wgpu::Queue) {}
-}
-
-impl BindingLayoutHandle<SamplerBinding, SamplerBindingLayout> for SamplerHandle {
+impl BindingHandleLayout<SamplerBinding, SamplerBindingLayout, SamplerHandle>
+    for SamplerHandleLayout
+{
     fn get_binding_layout(&self) -> &SamplerBindingLayout {
         &self.binding_layout
     }
+
+    fn create_handle(&self, renderer: &Renderer) -> SamplerHandle {
+        SamplerHandle::new(renderer.create_binding(&self.binding_layout))
+    }
+}
+
+/*--------------------------------------------------------------------------------------------------*/
+
+pub struct SamplerHandle {
+    binding: SamplerBinding,
+}
+
+impl SamplerHandle {
+    pub fn new(binding: SamplerBinding) -> Self {
+        Self { binding }
+    }
+}
+
+impl BindingHandle for SamplerHandle {
+    fn get_binding(&self) -> &dyn Binding {
+        &self.binding
+    }
+
+    fn update(&self, _: &wgpu::Queue) {}
 }

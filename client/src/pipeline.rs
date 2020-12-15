@@ -1,4 +1,7 @@
-use crate::binding;
+use crate::{
+    binding::{Binding, BindingLayout},
+    handle::{BindingHandle, BindingHandleLayout},
+};
 
 pub struct Shaders {
     pub vertex_module: wgpu::ShaderModule,
@@ -32,22 +35,23 @@ pub trait Vertex {
 
 /*--------------------------------------------------------------------------------------------------*/
 
-pub struct BindingEntries {
+pub struct BindingLayoutEntries {
     entries: Vec<wgpu::BindGroupLayoutEntry>,
 }
 
-impl BindingEntries {
-    pub fn new() -> BindingEntries {
-        BindingEntries {
+impl BindingLayoutEntries {
+    pub fn new() -> BindingLayoutEntries {
+        BindingLayoutEntries {
             entries: Vec::new(),
         }
     }
 
-    pub fn add<A: binding::Binding, B: binding::BindingLayout<A>>(
+    pub fn add<A: Binding, B: BindingLayout<A>, H: BindingHandle>(
         mut self,
-        binding_layout: &B,
+        handle_layout: &dyn BindingHandleLayout<A, B, H>,
     ) -> Self {
-        let mut layout_entry: wgpu::BindGroupLayoutEntry = binding_layout.get_entry();
+        let mut layout_entry: wgpu::BindGroupLayoutEntry =
+            handle_layout.get_binding_layout().get_entry();
         layout_entry.binding = self.entries.len() as u32;
 
         self.entries.push(layout_entry);
@@ -69,7 +73,7 @@ impl Pipeline {
     pub fn new<T: Vertex>(
         device: &wgpu::Device,
         shaders: &Shaders,
-        binding_entries: &BindingEntries,
+        binding_entries: &BindingLayoutEntries,
 
         color_state: Option<wgpu::ColorStateDescriptor>,
         depth_stencil_state: Option<wgpu::DepthStencilStateDescriptor>,
@@ -142,11 +146,11 @@ impl Pipeline {
         device: &wgpu::Device,
 
         geometry: &Geometry,
-        bindings: Vec<&dyn binding::Binding>,
+        handles: Vec<&dyn BindingHandle>,
 
         n_instances: u32,
     ) {
-        let bind_group = self.create_bind_group(device, &bindings);
+        let bind_group = self.create_bind_group(device, handles);
 
         self.entities.push(Entity {
             vertex_buffer: std::rc::Rc::clone(&geometry.vertex_buffer),
@@ -165,11 +169,11 @@ impl Pipeline {
     fn create_bind_group(
         &self,
         device: &wgpu::Device,
-        bindings: &Vec<&dyn binding::Binding>,
+        handles: Vec<&dyn BindingHandle>,
     ) -> wgpu::BindGroup {
-        let entries: Vec<wgpu::BindGroupEntry> = bindings
+        let entries: Vec<wgpu::BindGroupEntry> = handles
             .iter()
-            .map(|binding| binding.get_resource())
+            .map(|handle| handle.get_binding().get_resource())
             .enumerate()
             .map(|(index, resource)| wgpu::BindGroupEntry {
                 binding: index as u32,
@@ -203,6 +207,8 @@ impl Geometry {
         }
     }
 }
+
+/*--------------------------------------------------------------------------------------------------*/
 
 struct Entity {
     vertex_buffer: std::rc::Rc<wgpu::Buffer>,

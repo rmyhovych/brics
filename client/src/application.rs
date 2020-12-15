@@ -12,6 +12,7 @@ pub trait Application<T: 'static + Scene> {
         let event_loop = winit::event_loop::EventLoop::new();
         let mut renderer: Renderer = futures::executor::block_on(Renderer::new(&event_loop));
         let mut scene = self.create_scene(&mut renderer);
+        scene.setup_logic(&mut renderer);
 
         let mut swap_chain = renderer.create_swap_chain();
         let mut input_state = InputState::new();
@@ -47,7 +48,7 @@ pub trait Application<T: 'static + Scene> {
                         }
                     };
 
-                    scene.game_loop(&input_state, &mut renderer);
+                    scene.step(&input_state, &mut renderer);
                     renderer.render(&frame);
                 }
                 _ => {}

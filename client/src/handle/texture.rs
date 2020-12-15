@@ -1,45 +1,64 @@
-use super::{BindingHandle, BindingLayoutHandle};
+use super::{BindingHandle, BindingHandleLayout};
 use crate::{
-    binding::texture::{TextureBinding, TextureBindingLayout},
+    binding::{
+        texture::{TextureBinding, TextureBindingLayout},
+        Binding,
+    },
     renderer::Renderer,
 };
 
 /*--------------------------------------------------------------------------------------------------*/
 
-pub struct TextureHandle {
+pub struct TextureHandleLayout {
     binding_layout: TextureBindingLayout,
-    binding: TextureBinding,
 }
 
-impl TextureHandle {
+impl TextureHandleLayout {
     pub fn new(
-        renderer: &Renderer,
         visibility: wgpu::ShaderStage,
         size: wgpu::Extent3d,
         format: wgpu::TextureFormat,
     ) -> Self {
-        let binding_layout = TextureBindingLayout::new_sampled_output(visibility, size, format);
-        let binding = renderer.create_binding(&binding_layout);
-
         Self {
-            binding_layout,
-            binding,
+            binding_layout: TextureBindingLayout::new_sampled_output(visibility, size, format),
         }
     }
 }
 
-impl BindingHandle<TextureBinding> for TextureHandle {
-    fn get_binding(&self) -> &TextureBinding {
-        &self.binding
+impl BindingHandleLayout<TextureBinding, TextureBindingLayout, TextureHandle>
+    for TextureHandleLayout
+{
+    fn get_binding_layout(&self) -> &TextureBindingLayout {
+        &self.binding_layout
     }
 
-    fn update(&mut self, _: &wgpu::Queue) {
-        // TODO
+    fn create_handle(&self, renderer: &Renderer) -> TextureHandle {
+        TextureHandle::new(renderer.create_binding(&self.binding_layout))
     }
 }
 
-impl BindingLayoutHandle<TextureBinding, TextureBindingLayout> for TextureHandle {
-    fn get_binding_layout(&self) -> &TextureBindingLayout {
-        &self.binding_layout
+/*--------------------------------------------------------------------------------------------------*/
+
+pub struct TextureHandle {
+    binding: TextureBinding,
+}
+
+impl TextureHandle {
+    pub fn new(binding: TextureBinding) -> Self {
+        Self { binding }
+    }
+
+    pub fn create_texture_view(&self) -> wgpu::TextureView {
+        self.binding.create_texture_view()
+    }
+}
+
+impl BindingHandle for TextureHandle {
+    fn get_binding(&self) -> &dyn Binding {
+        &self.binding
+    }
+
+    fn update(&self, _: &wgpu::Queue) {
+        // TODO
     }
 }

@@ -1,9 +1,12 @@
 use cgmath::{self, InnerSpace, Matrix4, Point3, Quaternion, Rotation, Rotation3, Vector3};
 use wgpu::{self};
 
-use super::{BindingHandle, BindingLayoutHandle};
+use super::{BindingHandle, BindingHandleLayout};
 use crate::{
-    binding::buffer::{UniformBinding, UniformBindingLayout},
+    binding::{
+        buffer::{UniformBinding, UniformBindingLayout},
+        Binding,
+    },
     renderer::Renderer,
 };
 
@@ -27,9 +30,34 @@ impl CameraState {
 
 /*--------------------------------------------------------------------------------------------------*/
 
+pub struct CameraHandleLayout {
+    binding_layout: UniformBindingLayout,
+}
+
+impl CameraHandleLayout {
+    pub fn new(visibility: wgpu::ShaderStage) -> Self {
+        Self {
+            binding_layout: UniformBindingLayout::new::<CameraState>(visibility),
+        }
+    }
+}
+
+impl BindingHandleLayout<UniformBinding, UniformBindingLayout, CameraHandle>
+    for CameraHandleLayout
+{
+    fn get_binding_layout(&self) -> &UniformBindingLayout {
+        &self.binding_layout
+    }
+
+    fn create_handle(&self, renderer: &Renderer) -> CameraHandle {
+        CameraHandle::new(renderer.create_binding(&self.binding_layout))
+    }
+}
+
+/*--------------------------------------------------------------------------------------------------*/
+
 pub struct CameraHandle {
-    uniform_binding_layout: UniformBindingLayout,
-    uniform_binding: UniformBinding,
+    binding: UniformBinding,
 
     projection: Matrix4<f32>,
 
@@ -38,14 +66,9 @@ pub struct CameraHandle {
 }
 
 impl CameraHandle {
-    pub fn new(renderer: &Renderer, visibility: wgpu::ShaderStage) -> Self {
-        let uniform_binding_layout: UniformBindingLayout =
-            UniformBindingLayout::new::<CameraState>(visibility);
-        let uniform_binding = renderer.create_binding(&uniform_binding_layout);
-
+    pub fn new(binding: UniformBinding) -> Self {
         Self {
-            uniform_binding_layout,
-            uniform_binding,
+            binding,
 
             projection: Matrix4::from_scale(1.0),
 
@@ -151,21 +174,13 @@ impl CameraHandle {
     }
 }
 
-/*----------------------------------------------------------------------------------*/
-
-impl BindingHandle<UniformBinding> for CameraHandle {
-    fn get_binding(&self) -> &UniformBinding {
-        &self.uniform_binding
+impl BindingHandle for CameraHandle {
+    fn get_binding(&self) -> &dyn Binding {
+        &self.binding
     }
 
-    fn update(&mut self, write_queue: &wgpu::Queue) {
+    fn update(&self, write_queue: &wgpu::Queue) {
         let uniform_data = CameraState::new(&self.projection, &self.eye, &self.center);
-        self.uniform_binding.update(&uniform_data, write_queue);
-    }
-}
-
-impl BindingLayoutHandle<UniformBinding, UniformBindingLayout> for CameraHandle {
-    fn get_binding_layout(&self) -> &UniformBindingLayout {
-        &self.uniform_binding_layout
+        self.binding.update(&uniform_data, write_queue);
     }
 }

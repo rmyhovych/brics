@@ -1,6 +1,9 @@
-use super::{BindingHandle, BindingLayoutHandle};
+use super::{BindingHandle, BindingHandleLayout};
 use crate::{
-    binding::buffer::{UniformBinding, UniformBindingLayout},
+    binding::{
+        buffer::{UniformBinding, UniformBindingLayout},
+        Binding,
+    },
     renderer::Renderer,
 };
 use cgmath::{InnerSpace, Vector3};
@@ -27,20 +30,39 @@ impl LightState {
 
 /*--------------------------------------------------------------------------------------------------*/
 
-pub struct LightHandle {
+pub struct LightHandleLayout {
     binding_layout: UniformBindingLayout,
+}
+
+impl LightHandleLayout {
+    pub fn new(visibility: wgpu::ShaderStage) -> Self {
+        Self {
+            binding_layout: UniformBindingLayout::new::<LightState>(visibility),
+        }
+    }
+}
+
+impl BindingHandleLayout<UniformBinding, UniformBindingLayout, LightHandle> for LightHandleLayout {
+    fn get_binding_layout(&self) -> &UniformBindingLayout {
+        &self.binding_layout
+    }
+
+    fn create_handle(&self, renderer: &Renderer) -> LightHandle {
+        LightHandle::new(renderer.create_binding(&self.binding_layout))
+    }
+}
+
+/*--------------------------------------------------------------------------------------------------*/
+
+pub struct LightHandle {
     binding: UniformBinding,
 
     state: LightState,
 }
 
 impl LightHandle {
-    pub fn new(renderer: &Renderer, visibility: wgpu::ShaderStage) -> Self {
-        let binding_layout = UniformBindingLayout::new::<LightState>(visibility);
-        let binding = renderer.create_binding(&binding_layout);
-
+    pub fn new(binding: UniformBinding) -> Self {
         Self {
-            binding_layout,
             binding,
 
             state: LightState::new(
@@ -79,18 +101,12 @@ impl LightHandle {
     }
 }
 
-impl BindingHandle<UniformBinding> for LightHandle {
-    fn get_binding(&self) -> &UniformBinding {
+impl BindingHandle for LightHandle {
+    fn get_binding(&self) -> &dyn Binding {
         &self.binding
     }
 
-    fn update(&mut self, write_queue: &wgpu::Queue) {
+    fn update(&self, write_queue: &wgpu::Queue) {
         self.binding.update(&self.state, write_queue);
-    }
-}
-
-impl BindingLayoutHandle<UniformBinding, UniformBindingLayout> for LightHandle {
-    fn get_binding_layout(&self) -> &UniformBindingLayout {
-        &self.binding_layout
     }
 }
