@@ -15,34 +15,34 @@ use wgpu;
 
 #[repr(align(16))]
 #[derive(Debug, Copy, Clone)]
-pub struct ObjectState {
+pub struct ShapeState {
     pub model: Matrix4<f32>,
     pub color: Vector3<f32>,
 }
 
 /*--------------------------------------------------------------------------------------------------*/
 
-pub struct ObjectHandleLayout {
+pub struct ShapeHandleLayout {
     binding_layout: UniformBindingLayout,
 }
 
-impl ObjectHandleLayout {
+impl ShapeHandleLayout {
     pub fn new(visibility: wgpu::ShaderStage) -> Self {
         Self {
-            binding_layout: UniformBindingLayout::new::<ObjectState>(visibility),
+            binding_layout: UniformBindingLayout::new::<ShapeState>(visibility),
         }
     }
 }
 
-impl BindingHandleLayout<UniformBinding, UniformBindingLayout, ObjectHandle>
-    for ObjectHandleLayout
+impl BindingHandleLayout<UniformBinding, UniformBindingLayout, ShapeHandle>
+    for ShapeHandleLayout
 {
     fn get_binding_layout(&self) -> &UniformBindingLayout {
         &self.binding_layout
     }
 
-    fn create_handle(&self, renderer: &Renderer) -> ObjectHandle {
-        ObjectHandle::new(
+    fn create_handle(&self, renderer: &Renderer) -> ShapeHandle {
+        ShapeHandle::new(
             renderer.create_binding(&self.binding_layout),
         )
     }
@@ -50,18 +50,18 @@ impl BindingHandleLayout<UniformBinding, UniformBindingLayout, ObjectHandle>
 
 /*--------------------------------------------------------------------------------------------------*/
 
-pub struct ObjectHandle {
+pub struct ShapeHandle {
     binding: UniformBinding,
 
-    state: ObjectState,
+    state: ShapeState,
 }
 
-impl ObjectHandle {
+impl ShapeHandle {
     pub fn new(binding: UniformBinding) -> Self {
         Self {
             binding,
 
-            state: ObjectState {
+            state: ShapeState {
                     model: Matrix4::from_scale(1.0),
                     color: Vector3 {
                         x: 1.0,
@@ -72,16 +72,16 @@ impl ObjectHandle {
         }
     }
 
-    pub fn get_state(&self) -> &ObjectState {
+    pub fn get_state(&self) -> &ShapeState {
         &self.state
     }
 
-    pub fn set_state(&mut self, state: ObjectState) {
+    pub fn set_state(&mut self, state: ShapeState) {
         self.state = state;
     }
 }
 
-impl BindingHandle for ObjectHandle {
+impl BindingHandle for ShapeHandle {
     fn get_binding(&self) -> &dyn Binding {
         &self.binding
     }

@@ -1,7 +1,7 @@
 pub mod camera;
 pub mod light;
-pub mod object;
 pub mod sampler;
+pub mod shape;
 pub mod texture;
 
 use crate::{

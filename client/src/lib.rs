@@ -2,7 +2,7 @@ pub mod application;
 pub mod binding;
 pub mod handle;
 pub mod input;
-// pub mod object;
+pub mod object;
 pub mod pipeline;
 pub mod render_pass;
 pub mod renderer;

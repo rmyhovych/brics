@@ -9,7 +9,7 @@ use rustgame::{
     handle::{
         camera::{CameraHandle, CameraHandleLayout},
         light::{LightHandle, LightHandleLayout},
-        object::{ObjectHandle, ObjectHandleLayout, ObjectState},
+        shape::{ShapeHandle, ShapeHandleLayout, ShapeState},
         sampler::{SamplerHandle, SamplerHandleLayout},
         texture::{TextureHandle, TextureHandleLayout},
         BindingHandle, BindingHandleLayout,
@@ -107,11 +107,8 @@ struct MainScene {
     camera: CameraHandle,
     light_camera: CameraHandle,
 
-    lights: Vec<LightHandle>,
-    objects: Vec<ObjectHandle>,
-
-    depth_texture: TextureHandle,
-    depth_sampler: SamplerHandle,
+    light: LightHandle,
+    objects: Vec<ShapeHandle>
 }
 
 impl Scene for MainScene {
@@ -123,7 +120,7 @@ impl Scene for MainScene {
         let light_handle_layout = LightHandleLayout::new(wgpu::ShaderStage::FRAGMENT);
         let light = Self::create_light(&light_handle_layout, renderer);
 
-        let object_handle_layout = ObjectHandleLayout::new(wgpu::ShaderStage::VERTEX);
+        let object_handle_layout = ShapeHandleLayout::new(wgpu::ShaderStage::VERTEX);
         let cubes = Self::create_cube_handles(&object_handle_layout, renderer);
 
         let depth_texture_handle_layout = TextureHandleLayout::new(
@@ -203,11 +200,8 @@ impl Scene for MainScene {
             camera,
             light_camera,
 
-            lights: vec![light],
-            objects: cubes,
-
-            depth_texture: depth_texture_handle,
-            depth_sampler: sampler_handle,
+            light,
+            objects: cubes
         }
     }
 
@@ -291,41 +285,15 @@ impl MainScene {
     }
 
     fn create_cube_handles(
-        object_handle_layout: &ObjectHandleLayout,
+        object_handle_layout: &ShapeHandleLayout,
         renderer: &Renderer,
-    ) -> Vec<ObjectHandle> {
-        let mut cubes: Vec<ObjectHandle> = Vec::new();
+    ) -> Vec<ShapeHandle> {
+        let mut cubes: Vec<ShapeHandle> = Vec::new();
 
         let mut object = object_handle_layout.create_handle(renderer);
-        /*
-        object.set_state(ObjectState {
-            model: Matrix4::from_translation(Vector3 {
-                x: 0.0,
-                y: 0.0,
-                z: 0.0,
-            }) * Matrix4::from_nonuniform_scale(1.0, 0.1, 1.0),
-            color: Vector3 {
-                x: 0.8,
-                y: 0.8,
-                z: 0.8,
-            },
-        });
-        */
         cubes.push(object);
 
         cubes
-
-        /*
-        let mut object = Object::new(&object_handle, 1);
-        object.set_color(0.2, 0.9, 0.2).translate(-1.0, 1.0, 0.0);
-        object.update_handle();
-
-        let mut object = Object::new(&object_handle, 2);
-        object.set_color(0.2, 0.2, 0.9).translate(1.0, 0.05, -3.0);
-        object.update_handle();
-
-        object_handle
-        */
     }
 
     fn create_shadow_pipeline(renderer: &Renderer, entries: BindingLayoutEntries) -> Pipeline {
@@ -427,9 +395,7 @@ impl MainScene {
         renderer.update_handle(&self.camera);
         renderer.update_handle(&self.light_camera);
 
-        self.lights
-            .iter()
-            .for_each(|handle| renderer.update_handle(handle));
+        renderer.update_handle(&self.light);
         self.objects
             .iter()
             .for_each(|handle| renderer.update_handle(handle));

@@ -1,71 +1,79 @@
-use crate::handle::object::{ObjectHandle, ObjectState};
-use cgmath::{Matrix4, Vector3};
-use std::{cell::RefCell, rc::Rc};
+use cgmath::Vector3;
 
-pub struct Object {
-    state: ObjectState,
+/*--------------------------------------------------------------------------------------------------*/
 
-    handle: Rc<RefCell<ObjectHandle>>,
-    instance: u32,
+pub struct Transform {
+    pub position: Vector3<f32>,
+    pub rotation: Vector3<f32>,
+    pub scale: Vector3<f32>,
 }
 
-impl Object {
-    pub fn new(handle: &Rc<RefCell<ObjectHandle>>, instance: u32) -> Self {
-        let handle = Rc::clone(handle);
-        let state = *(handle.borrow_mut().get_state(instance));
-
+impl Transform {
+    pub fn new() -> Self {
         Self {
-            state,
-
-            handle,
-            instance,
+            position: Vector3::new(0.0, 0.0, 0.0),
+            rotation: Vector3::new(0.0, 0.0, 0.0),
+            scale: Vector3::new(1.0, 1.0, 1.0),
         }
     }
 
-    pub fn translate(&mut self, x: f32, y: f32, z: f32) -> &mut Self {
-        self.state.model = Matrix4::from_translation(Vector3 { x, y, z }) * self.state.model;
+    pub fn translate(&mut self, delta: Vector3<f32>) -> &mut Self {
+        self.position += delta;
 
         self
     }
+}
 
-    pub fn set_color(&mut self, r: f32, g: f32, b: f32) -> &mut Self {
-        self.state.color = Vector3 { x: r, y: g, z: b };
+pub trait Transformable {
+    fn accept_transform(&mut self, transform: &Transform);
+}
 
-        self
+/*--------------------------------------------------------------------------------------------------*/
+
+pub struct Object {
+    transform: Transform,
+
+    object_id: Option<u32>,
+    light_id: Option<u32>,
+}
+
+impl Object {
+    pub fn new() -> Self {
+        Self {
+            transform: Transform::new(),
+            object_id: None,
+            light_id: None,
+        }
     }
 
-    pub fn rescale(&mut self, x: f32, y: f32, z: f32) -> &mut Self {
-        self.state.model = self.state.model * Matrix4::from_nonuniform_scale(x, y, z);
-
-        self
+    pub fn set_object(&mut self, id: u32) {
+        self.object_id = Some(id);
     }
 
-    pub fn update_handle(&self) {
-        self.handle
-            .borrow_mut()
-            .set_state(self.state, self.instance);
+    pub fn set_light(&mut self, id: u32) {
+        self.light_id = Some(id);
+    }
+
+    pub fn apply(&self, transformable: &mut dyn Transformable) {
+        transformable.accept_transform(&self.transform);
     }
 }
 
 pub struct Controller {
-    object: Object,
-    script: Box<dyn Fn(&mut Object)>,
+    pub object: Object,
+    update_action: Box<dyn Fn(&mut Object)>,
 }
 
 impl Controller {
-    pub fn new(
-        handle: &Rc<RefCell<ObjectHandle>>,
-        instance: u32,
-        script: Box<dyn Fn(&mut Object)>,
-    ) -> Self {
-        Self {
-            object: Object::new(handle, instance),
-            script,
+    pub fn new<F>(object: Object, action: impl Fn(&mut Object) + 'static) -> Self {
+        let update_action =  Box::new(action);
+        Controller {
+            object,
+            update_action,
         }
     }
 
     pub fn update(&mut self) {
-        self.script.as_ref()(&mut self.object);
-        self.object.update_handle();
+        (self.update_action)(&mut self.object);
     }
 }
