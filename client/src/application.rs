@@ -1,20 +1,20 @@
+use crate::graphics::GraphicsManager;
 use crate::input::InputState;
-use crate::renderer::Renderer;
 
-use crate::scene::Scene;
+use crate::logic::GameLogic;
+use crate::renderer::Renderer;
 
 use winit;
 
-pub trait Application<T: 'static + Scene> {
-    fn create_scene(&mut self, renderer: &mut Renderer) -> T;
+pub trait Application<R: 'static + Renderer, L: 'static + GameLogic<R>> {
+    fn create_renderer(event_loop: &winit::event_loop::EventLoop<()>) -> R;
+
+    fn create_game_logic(renderer: &mut R) -> L;
 
     fn run(&mut self) {
         let event_loop = winit::event_loop::EventLoop::new();
-        let mut renderer: Renderer = futures::executor::block_on(Renderer::new(&event_loop));
-        let mut scene = self.create_scene(&mut renderer);
-        scene.setup_logic(&mut renderer);
+        let mut renderer = Self::create_renderer(&event_loop);
 
-        let mut swap_chain = renderer.create_swap_chain();
         let mut input_state = InputState::new();
         let mut redraw_handler = RedrawHandler::new();
 
@@ -38,18 +38,7 @@ pub trait Application<T: 'static + Scene> {
                     println!("EVENT [{:?}]", event);
                 }
                 winit::event::Event::RedrawRequested(_) => {
-                    let frame = match swap_chain.get_current_frame() {
-                        Ok(frame) => frame,
-                        Err(_) => {
-                            swap_chain = renderer.create_swap_chain();
-                            swap_chain
-                                .get_current_frame()
-                                .expect("Failed to acquire next swap chain texture!")
-                        }
-                    };
-
-                    scene.step(&input_state, &mut renderer);
-                    renderer.render(&frame);
+                    renderer.render(&input_state);
                 }
                 _ => {}
             }
@@ -86,7 +75,7 @@ impl RedrawHandler {
         }
     }
 
-    fn request(&mut self, rend: &Renderer) {
+    fn request(&mut self, rend: &dyn Renderer) {
         #[cfg(not(target_arch = "wasm32"))]
         {
             if self.previous.elapsed() > std::time::Duration::from_millis(16) {

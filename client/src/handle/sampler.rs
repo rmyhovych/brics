@@ -4,7 +4,7 @@ use crate::{
         sampler::{SamplerAddressMode, SamplerBinding, SamplerBindingLayout, SamplerFilterMode},
         Binding,
     },
-    renderer::Renderer,
+    graphics::GraphicsManager,
 };
 
 /*--------------------------------------------------------------------------------------------------*/
@@ -38,8 +38,8 @@ impl BindingHandleLayout<SamplerBinding, SamplerBindingLayout, SamplerHandle>
         &self.binding_layout
     }
 
-    fn create_handle(&self, renderer: &Renderer) -> SamplerHandle {
-        SamplerHandle::new(renderer.create_binding(&self.binding_layout))
+    fn create_handle(&self, graphics: &GraphicsManager) -> SamplerHandle {
+        SamplerHandle::new(graphics.create_binding(&self.binding_layout))
     }
 }
 

@@ -4,7 +4,8 @@ use crate::{
         buffer::{UniformBindingLayout, UniformBinding},
         Binding,
     },
-    renderer::Renderer,
+    graphics::GraphicsManager,
+    object::{DynamicBinding, Transform},
 };
 
 use cgmath::{Matrix4, Vector3};
@@ -41,9 +42,9 @@ impl BindingHandleLayout<UniformBinding, UniformBindingLayout, ShapeHandle>
         &self.binding_layout
     }
 
-    fn create_handle(&self, renderer: &Renderer) -> ShapeHandle {
+    fn create_handle(&self, graphics: &GraphicsManager) -> ShapeHandle {
         ShapeHandle::new(
-            renderer.create_binding(&self.binding_layout),
+            graphics.create_binding(&self.binding_layout),
         )
     }
 }
@@ -88,5 +89,10 @@ impl BindingHandle for ShapeHandle {
 
     fn update(&self, write_queue: &wgpu::Queue) {
         self.binding.update(&self.state, write_queue);
+    }
+}
+
+impl DynamicBinding for ShapeHandle {
+    fn apply_changes(&mut self, transform: &Transform) {
     }
 }

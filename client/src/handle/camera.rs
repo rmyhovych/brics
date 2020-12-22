@@ -7,7 +7,8 @@ use crate::{
         buffer::{UniformBinding, UniformBindingLayout},
         Binding,
     },
-    renderer::Renderer,
+    graphics::GraphicsManager,
+    object::{DynamicBinding, Transform},
 };
 
 /*--------------------------------------------------------------------------------------------------*/
@@ -49,8 +50,8 @@ impl BindingHandleLayout<UniformBinding, UniformBindingLayout, CameraHandle>
         &self.binding_layout
     }
 
-    fn create_handle(&self, renderer: &Renderer) -> CameraHandle {
-        CameraHandle::new(renderer.create_binding(&self.binding_layout))
+    fn create_handle(&self, graphics: &GraphicsManager) -> CameraHandle {
+        CameraHandle::new(graphics.create_binding(&self.binding_layout))
     }
 }
 
@@ -183,4 +184,8 @@ impl BindingHandle for CameraHandle {
         let uniform_data = CameraState::new(&self.projection, &self.eye, &self.center);
         self.binding.update(&uniform_data, write_queue);
     }
+}
+
+impl DynamicBinding for CameraHandle {
+    fn apply_changes(&mut self, transform: &Transform) {}
 }

@@ -6,16 +6,16 @@ pub mod texture;
 
 use crate::{
     binding::{Binding, BindingLayout},
-    renderer,
+    graphics,
 };
-use renderer::Renderer;
+use graphics::GraphicsManager;
 
 /*----------------------------------------------------------------------------------*/
 
 pub trait BindingHandleLayout<B: Binding, L: BindingLayout<B>, H: BindingHandle> {
     fn get_binding_layout(&self) -> &L;
 
-    fn create_handle(&self, renderer: &Renderer) -> H;
+    fn create_handle(&self, graphics: &GraphicsManager) -> H;
 }
 
 pub trait BindingHandle {

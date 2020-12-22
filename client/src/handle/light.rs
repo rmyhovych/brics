@@ -4,7 +4,8 @@ use crate::{
         buffer::{UniformBinding, UniformBindingLayout},
         Binding,
     },
-    renderer::Renderer,
+    graphics::GraphicsManager,
+    object::{DynamicBinding, Transform},
 };
 use cgmath::{InnerSpace, Vector3};
 
@@ -47,8 +48,8 @@ impl BindingHandleLayout<UniformBinding, UniformBindingLayout, LightHandle> for 
         &self.binding_layout
     }
 
-    fn create_handle(&self, renderer: &Renderer) -> LightHandle {
-        LightHandle::new(renderer.create_binding(&self.binding_layout))
+    fn create_handle(&self, graphics: &GraphicsManager) -> LightHandle {
+        LightHandle::new(graphics.create_binding(&self.binding_layout))
     }
 }
 
@@ -109,4 +110,8 @@ impl BindingHandle for LightHandle {
     fn update(&self, write_queue: &wgpu::Queue) {
         self.binding.update(&self.state, write_queue);
     }
+}
+
+impl DynamicBinding for LightHandle {
+    fn apply_changes(&mut self, transform: &Transform) {}
 }

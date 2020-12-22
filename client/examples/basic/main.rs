@@ -6,19 +6,27 @@ use rustgame::{
         sampler::{SamplerAddressMode, SamplerFilterMode},
         texture::TextureBinding,
     },
+    graphics::GraphicsManager,
     handle::{
         camera::{CameraHandle, CameraHandleLayout},
         light::{LightHandle, LightHandleLayout},
-        shape::{ShapeHandle, ShapeHandleLayout, ShapeState},
         sampler::{SamplerHandle, SamplerHandleLayout},
+        shape::{ShapeHandle, ShapeHandleLayout, ShapeState},
         texture::{TextureHandle, TextureHandleLayout},
         BindingHandle, BindingHandleLayout,
     },
     input::InputState,
+    logic::GameLogic,
+    object,
     pipeline::{BindingLayoutEntries, Pipeline, Vertex},
     render_pass::{AttachmentView, RenderPass},
     renderer::Renderer,
-    scene::Scene,
+};
+
+use std::{
+    cell::RefCell,
+    ops::{Deref, DerefMut},
+    rc::Rc,
 };
 
 use cgmath::{InnerSpace, Matrix4, Point3, Vector3};
@@ -97,125 +105,116 @@ fn create_vertices() -> (Vec<VertexBasic>, Vec<u16>) {
 
 struct GameApplication {}
 
-impl Application<MainScene> for GameApplication {
-    fn create_scene(&mut self, renderer: &mut Renderer) -> MainScene {
-        MainScene::new(renderer)
+impl<'a> Application<MainRenderer, MainLogic> for GameApplication {
+    fn create_renderer(event_loop: &winit::event_loop::EventLoop<()>) -> MainRenderer {
+        MainRenderer::new(event_loop)
+    }
+
+    fn create_game_logic(renderer: &mut MainRenderer) -> MainLogic {
+        MainLogic::new(renderer)
     }
 }
 
-struct MainScene {
-    camera: CameraHandle,
+struct MainRenderer {
+    graphics: GraphicsManager,
+
+    /*------------------*/
+    light_handle_layout: LightHandleLayout,
+    shape_handle_layout: ShapeHandleLayout,
+
+    /*------------------*/
+    depth_texture_handle: TextureHandle,
+    depth_sampler_handle: SamplerHandle,
     light_camera: CameraHandle,
 
+    /*------------------*/
+    camera: CameraHandle,
     light: LightHandle,
-    objects: Vec<ShapeHandle>
+    shapes: Vec<ShapeHandle>,
 }
 
-impl Scene for MainScene {
-    fn new(renderer: &mut Renderer) -> Self {
+impl Renderer for MainRenderer {
+    fn new(event_loop: &winit::event_loop::EventLoop<()>) -> Self {
+        let mut graphics: GraphicsManager =
+            futures::executor::block_on(GraphicsManager::new(event_loop));
+
         let camera_handle_layout = CameraHandleLayout::new(wgpu::ShaderStage::VERTEX);
-        let camera = Self::create_main_camera(&camera_handle_layout, renderer);
-        let light_camera = Self::create_light_camera(&camera_handle_layout, renderer);
+        let camera = Self::create_main_camera(&camera_handle_layout, &graphics);
+
+        let light_camera = Self::create_light_camera(&camera_handle_layout, &graphics);
 
         let light_handle_layout = LightHandleLayout::new(wgpu::ShaderStage::FRAGMENT);
-        let light = Self::create_light(&light_handle_layout, renderer);
+        let light = Self::create_light(&light_handle_layout, &graphics);
 
-        let object_handle_layout = ShapeHandleLayout::new(wgpu::ShaderStage::VERTEX);
-        let cubes = Self::create_cube_handles(&object_handle_layout, renderer);
+        let shape_handle_layout = ShapeHandleLayout::new(wgpu::ShaderStage::VERTEX);
 
-        let depth_texture_handle_layout = TextureHandleLayout::new(
-            wgpu::ShaderStage::FRAGMENT,
-            wgpu::Extent3d {
-                width: 2048,
-                height: 2048,
-                depth: 1,
-            },
-            wgpu::TextureFormat::Depth32Float,
-        );
-        let depth_texture_handle = depth_texture_handle_layout.create_handle(renderer);
-
-        let sampler_handle_layout = SamplerHandleLayout::new(
-            wgpu::ShaderStage::FRAGMENT,
-            SamplerAddressMode {
-                u: wgpu::AddressMode::ClampToEdge,
-                v: wgpu::AddressMode::ClampToEdge,
-                w: wgpu::AddressMode::ClampToEdge,
-            },
-            SamplerFilterMode {
-                mag: wgpu::FilterMode::Linear,
-                min: wgpu::FilterMode::Linear,
-                mipmap: wgpu::FilterMode::Nearest,
-            },
-            Some(wgpu::CompareFunction::LessEqual),
-        );
-        let sampler_handle = sampler_handle_layout.create_handle(renderer);
-
+        /*
         let (vertices, indices) = create_vertices();
-        let cube_geometry = renderer.create_geometry(vertices, indices);
+        let cube_geometry = graphics.create_geometry(vertices, indices);
+        */
 
-        let mut shadow_pipeline = Self::create_shadow_pipeline(
-            renderer,
+        let (
+            depth_texture_handle_layout,
+            sampler_handle_layout,
+            depth_texture_handle,
+            depth_sampler_handle,
+        ) = Self::create_depth_texture(&graphics);
+
+        let shadow_pipeline = Self::create_shadow_pipeline(
+            &graphics,
             BindingLayoutEntries::new()
                 .add(&camera_handle_layout)
-                .add(&object_handle_layout),
+                .add(&shape_handle_layout),
         );
-        for cube in cubes.iter() {
-            renderer.add_pipeline_entity(
-                &mut shadow_pipeline,
-                &cube_geometry,
-                vec![&light_camera, cube],
-            );
-        }
 
-        let mut material_pipeline = Self::create_material_pipeline(
-            renderer,
+        let material_pipeline = Self::create_material_pipeline(
+            &graphics,
             BindingLayoutEntries::new()
                 .add(&camera_handle_layout)
-                .add(&object_handle_layout)
+                .add(&shape_handle_layout)
                 .add(&light_handle_layout)
                 .add(&camera_handle_layout)
                 .add(&depth_texture_handle_layout)
                 .add(&sampler_handle_layout),
         );
-        for cube in cubes.iter() {
-            renderer.add_pipeline_entity(
-                &mut material_pipeline,
-                &cube_geometry,
-                vec![
-                    &camera,
-                    cube,
-                    &light,
-                    &light_camera,
-                    &depth_texture_handle,
-                    &sampler_handle,
-                ],
-            );
-        }
 
         let texture_view = depth_texture_handle.create_texture_view();
-        // Self::create_shadow_render_pass(renderer, shadow_pipeline, texture_view);
-        Self::create_material_render_pass(renderer, material_pipeline);
+        // Self::create_shadow_render_pass(graphics, shadow_pipeline, texture_view);
+        Self::create_material_render_pass(&mut graphics, material_pipeline);
 
         Self {
-            camera,
+            graphics,
+
+            light_handle_layout,
+            shape_handle_layout,
+
+            depth_texture_handle,
+            depth_sampler_handle,
             light_camera,
 
+            camera,
             light,
-            objects: cubes
+            shapes: Vec::new(),
         }
     }
 
-    fn setup_logic(&mut self, renderer: &mut Renderer) {}
+    fn render(&mut self, input_state: &InputState) {
+        self.update_bindings();
+        self.graphics.render();
+    }
 
-    fn step(&mut self, input_state: &InputState, renderer: &mut Renderer) {
-        self.update_bindings(renderer);
+    fn request_redraw(&self) {
+        self.graphics.request_redraw();
     }
 }
 
-impl MainScene {
-    fn create_main_camera(handle_layout: &CameraHandleLayout, renderer: &Renderer) -> CameraHandle {
-        let window_size = renderer.get_window_size();
-        let mut camera = handle_layout.create_handle(renderer);
+impl MainRenderer {
+    fn create_main_camera(
+        handle_layout: &CameraHandleLayout,
+        graphics: &GraphicsManager,
+    ) -> CameraHandle {
+        let window_size = graphics.get_window_size();
+        let mut camera = handle_layout.create_handle(graphics);
         camera
             .set_perspective(75.0, window_size.width as f32 / window_size.height as f32)
             .look_at(
@@ -236,10 +235,10 @@ impl MainScene {
 
     fn create_light_camera(
         handle_layout: &CameraHandleLayout,
-        renderer: &Renderer,
+        graphics: &GraphicsManager,
     ) -> CameraHandle {
         let camera_cube_size = 20.0;
-        let mut camera = handle_layout.create_handle(renderer);
+        let mut camera = handle_layout.create_handle(graphics);
         camera
             .set_ortho(
                 -camera_cube_size,
@@ -265,7 +264,7 @@ impl MainScene {
         camera
     }
 
-    fn create_light(handle_layout: &LightHandleLayout, renderer: &Renderer) -> LightHandle {
+    fn create_light(handle_layout: &LightHandleLayout, graphics: &GraphicsManager) -> LightHandle {
         let light_color = cgmath::Vector3 {
             x: 1.0,
             y: 1.0,
@@ -276,7 +275,7 @@ impl MainScene {
             y: 1.5,
             z: 0.5,
         };
-        let mut light = handle_layout.create_handle(renderer);
+        let mut light = handle_layout.create_handle(graphics);
         light
             .set_color(light_color.clone())
             .set_direction(light_direction);
@@ -284,20 +283,54 @@ impl MainScene {
         light
     }
 
-    fn create_cube_handles(
-        object_handle_layout: &ShapeHandleLayout,
-        renderer: &Renderer,
-    ) -> Vec<ShapeHandle> {
-        let mut cubes: Vec<ShapeHandle> = Vec::new();
+    fn create_depth_texture(
+        graphics: &GraphicsManager,
+    ) -> (
+        TextureHandleLayout,
+        SamplerHandleLayout,
+        TextureHandle,
+        SamplerHandle,
+    ) {
+        let depth_texture_handle_layout = TextureHandleLayout::new(
+            wgpu::ShaderStage::FRAGMENT,
+            wgpu::Extent3d {
+                width: 2048,
+                height: 2048,
+                depth: 1,
+            },
+            wgpu::TextureFormat::Depth32Float,
+        );
+        let depth_texture_handle = depth_texture_handle_layout.create_handle(graphics);
 
-        let mut object = object_handle_layout.create_handle(renderer);
-        cubes.push(object);
+        let sampler_handle_layout = SamplerHandleLayout::new(
+            wgpu::ShaderStage::FRAGMENT,
+            SamplerAddressMode {
+                u: wgpu::AddressMode::ClampToEdge,
+                v: wgpu::AddressMode::ClampToEdge,
+                w: wgpu::AddressMode::ClampToEdge,
+            },
+            SamplerFilterMode {
+                mag: wgpu::FilterMode::Linear,
+                min: wgpu::FilterMode::Linear,
+                mipmap: wgpu::FilterMode::Nearest,
+            },
+            Some(wgpu::CompareFunction::LessEqual),
+        );
+        let sampler_handle = sampler_handle_layout.create_handle(graphics);
 
-        cubes
+        (
+            depth_texture_handle_layout,
+            sampler_handle_layout,
+            depth_texture_handle,
+            sampler_handle,
+        )
     }
 
-    fn create_shadow_pipeline(renderer: &Renderer, entries: BindingLayoutEntries) -> Pipeline {
-        renderer.create_pipeline::<VertexBasic>(
+    fn create_shadow_pipeline(
+        graphics: &GraphicsManager,
+        entries: BindingLayoutEntries,
+    ) -> Pipeline {
+        graphics.create_pipeline::<VertexBasic>(
             "examples/basic/shaders/shadow.vert",
             "examples/basic/shaders/shadow.frag",
             entries,
@@ -311,7 +344,7 @@ impl MainScene {
             Some(wgpu::RasterizationStateDescriptor {
                 front_face: wgpu::FrontFace::Ccw,
                 cull_mode: wgpu::CullMode::Back,
-                depth_bias: 2, // corresponds to bilinear filtering
+                depth_bias: 2,
                 depth_bias_slope_scale: 2.0,
                 depth_bias_clamp: 0.0,
                 clamp_depth: false,
@@ -319,13 +352,16 @@ impl MainScene {
         )
     }
 
-    fn create_material_pipeline(renderer: &Renderer, entries: BindingLayoutEntries) -> Pipeline {
-        renderer.create_pipeline::<VertexBasic>(
+    fn create_material_pipeline(
+        graphics: &GraphicsManager,
+        entries: BindingLayoutEntries,
+    ) -> Pipeline {
+        graphics.create_pipeline::<VertexBasic>(
             "examples/basic/shaders/material.vert",
             "examples/basic/shaders/material.frag",
             entries,
             Some(wgpu::ColorStateDescriptor {
-                format: Renderer::get_swapchain_color_format(),
+                format: GraphicsManager::get_swapchain_color_format(),
                 color_blend: wgpu::BlendDescriptor::REPLACE,
                 alpha_blend: wgpu::BlendDescriptor::REPLACE,
                 write_mask: wgpu::ColorWrite::ALL,
@@ -345,7 +381,7 @@ impl MainScene {
     }
 
     fn create_shadow_render_pass(
-        renderer: &mut Renderer,
+        graphics: &mut GraphicsManager,
         shadow_pipeline: Pipeline,
         depth_output: wgpu::TextureView,
     ) {
@@ -359,11 +395,11 @@ impl MainScene {
         );
 
         rpass.add_pipeline(shadow_pipeline);
-        renderer.add_render_pass(rpass);
+        graphics.add_render_pass(rpass);
     }
 
-    fn create_material_render_pass(renderer: &mut Renderer, material_pipeline: Pipeline) {
-        let depth_texture_view = renderer.create_depth_texture_view();
+    fn create_material_render_pass(graphics: &mut GraphicsManager, material_pipeline: Pipeline) {
+        let depth_texture_view = graphics.create_depth_texture_view();
         let mut rpass = RenderPass::new();
         rpass
             .set_color_attachment(
@@ -388,17 +424,45 @@ impl MainScene {
 
         rpass.add_pipeline(material_pipeline);
 
-        renderer.add_render_pass(rpass);
+        graphics.add_render_pass(rpass);
     }
 
-    fn update_bindings(&self, renderer: &mut Renderer) {
-        renderer.update_handle(&self.camera);
-        renderer.update_handle(&self.light_camera);
+    fn update_bindings(&self) {
+        /*
+        self.graphics.update_handle(self.camera.borrow());
+        self.graphics.update_handle(&self.light_camera);
 
-        renderer.update_handle(&self.light);
-        self.objects
+        self.graphics.update_handle(&self.light);
+        self.shapes
             .iter()
-            .for_each(|handle| renderer.update_handle(handle));
+            .for_each(|handle| self.graphics.update_handle(handle));
+        */
+    }
+}
+
+/*--------------------------------------------------------------------------------------------------*/
+
+struct MainLogic {
+    objects: Vec<object::Object>,
+    controllers: Vec<Box<dyn Fn(&mut object::Object)>>,
+}
+
+impl GameLogic<MainRenderer> for MainLogic {
+    fn new(renderer: &mut MainRenderer) -> Self {
+        Self {
+            objects: Vec::new(),
+            controllers: Vec::new(),
+        }
+    }
+
+    fn step(&mut self) {
+        self.controllers
+            .iter()
+            .zip(self.objects.iter_mut())
+            .for_each(|(controller, object)| {
+                controller(object);
+                object.apply_changes();
+            });
     }
 }
 

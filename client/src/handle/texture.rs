@@ -4,7 +4,7 @@ use crate::{
         texture::{TextureBinding, TextureBindingLayout},
         Binding,
     },
-    renderer::Renderer,
+    graphics::GraphicsManager,
 };
 
 /*--------------------------------------------------------------------------------------------------*/
@@ -32,8 +32,8 @@ impl BindingHandleLayout<TextureBinding, TextureBindingLayout, TextureHandle>
         &self.binding_layout
     }
 
-    fn create_handle(&self, renderer: &Renderer) -> TextureHandle {
-        TextureHandle::new(renderer.create_binding(&self.binding_layout))
+    fn create_handle(&self, graphics: &GraphicsManager) -> TextureHandle {
+        TextureHandle::new(graphics.create_binding(&self.binding_layout))
     }
 }
 

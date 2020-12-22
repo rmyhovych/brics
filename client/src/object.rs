@@ -1,5 +1,23 @@
 use cgmath::Vector3;
 
+use crate::handle::{camera::CameraHandle, light::LightHandle, shape::ShapeHandle};
+
+/*--------------------------------------------------------------------------------------------------*/
+
+struct BindingProxy<H: DynamicBinding> {
+    mem: *mut H,
+}
+
+impl<H: DynamicBinding> BindingProxy<H> {
+    pub fn new(binding: &mut H) -> Self {
+        Self { mem: binding }
+    }
+
+    pub fn get(&self) -> &mut H {
+        unsafe { self.mem.as_mut().unwrap() }
+    }
+}
+
 /*--------------------------------------------------------------------------------------------------*/
 
 pub struct Transform {
@@ -24,56 +42,56 @@ impl Transform {
     }
 }
 
-pub trait Transformable {
-    fn accept_transform(&mut self, transform: &Transform);
+pub trait DynamicBinding {
+    fn apply_changes(&mut self, transform: &Transform);
 }
 
 /*--------------------------------------------------------------------------------------------------*/
 
 pub struct Object {
-    transform: Transform,
+    pub transform: Transform,
 
-    object_id: Option<u32>,
-    light_id: Option<u32>,
+    shape: Option<BindingProxy<ShapeHandle>>,
+    light: Option<BindingProxy<LightHandle>>,
+    camera: Option<BindingProxy<CameraHandle>>,
 }
 
 impl Object {
     pub fn new() -> Self {
         Self {
             transform: Transform::new(),
-            object_id: None,
-            light_id: None,
+
+            shape: None,
+            light: None,
+            camera: None,
         }
     }
 
-    pub fn set_object(&mut self, id: u32) {
-        self.object_id = Some(id);
+    pub fn set_shape(&mut self, shape: &mut ShapeHandle) {
+        self.shape = Self::wrap(shape);
     }
 
-    pub fn set_light(&mut self, id: u32) {
-        self.light_id = Some(id);
+    pub fn set_light(&mut self, light: &mut LightHandle) {
+        self.light = Self::wrap(light);
     }
 
-    pub fn apply(&self, transformable: &mut dyn Transformable) {
-        transformable.accept_transform(&self.transform);
+    pub fn set_camera(&mut self, camera: &mut CameraHandle) {
+        self.camera = Self::wrap(camera);
     }
-}
 
-pub struct Controller {
-    pub object: Object,
-    update_action: Box<dyn Fn(&mut Object)>,
-}
+    pub fn apply_changes(&mut self) {
+        self.apply(&self.shape);
+        self.apply(&self.light);
+        self.apply(&self.camera);
+    }
 
-impl Controller {
-    pub fn new<F>(object: Object, action: impl Fn(&mut Object) + 'static) -> Self {
-        let update_action =  Box::new(action);
-        Controller {
-            object,
-            update_action,
+    fn wrap<H: DynamicBinding>(handle: &mut H) -> Option<BindingProxy<H>> {
+        Some(BindingProxy::new(handle))
+    }
+
+    fn apply<H: DynamicBinding>(&self, handle: &Option<BindingProxy<H>>) {
+        if let Some(proxy) = handle {
+            proxy.get().apply_changes(&self.transform);
         }
-    }
-
-    pub fn update(&mut self) {
-        (self.update_action)(&mut self.object);
     }
 }
