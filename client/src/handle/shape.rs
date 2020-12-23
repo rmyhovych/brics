@@ -1,7 +1,7 @@
 use super::{BindingHandle, BindingHandleLayout};
 use crate::{
     binding::{
-        buffer::{UniformBindingLayout, UniformBinding},
+        buffer::{UniformBinding, UniformBindingLayout},
         Binding,
     },
     graphics::GraphicsManager,
@@ -16,9 +16,9 @@ use wgpu;
 
 #[repr(align(16))]
 #[derive(Debug, Copy, Clone)]
-pub struct ShapeState {
-    pub model: Matrix4<f32>,
-    pub color: Vector3<f32>,
+struct ShapeState {
+    model: Matrix4<f32>,
+    color: Vector3<f32>,
 }
 
 /*--------------------------------------------------------------------------------------------------*/
@@ -35,17 +35,13 @@ impl ShapeHandleLayout {
     }
 }
 
-impl BindingHandleLayout<UniformBinding, UniformBindingLayout, ShapeHandle>
-    for ShapeHandleLayout
-{
+impl BindingHandleLayout<UniformBinding, UniformBindingLayout, ShapeHandle> for ShapeHandleLayout {
     fn get_binding_layout(&self) -> &UniformBindingLayout {
         &self.binding_layout
     }
 
     fn create_handle(&self, graphics: &GraphicsManager) -> ShapeHandle {
-        ShapeHandle::new(
-            graphics.create_binding(&self.binding_layout),
-        )
+        ShapeHandle::new(graphics.create_binding(&self.binding_layout))
     }
 }
 
@@ -63,22 +59,14 @@ impl ShapeHandle {
             binding,
 
             state: ShapeState {
-                    model: Matrix4::from_scale(1.0),
-                    color: Vector3 {
-                        x: 1.0,
-                        y: 1.0,
-                        z: 1.0,
-                    },
+                model: Matrix4::from_scale(1.0),
+                color: Vector3 {
+                    x: 1.0,
+                    y: 1.0,
+                    z: 1.0,
                 },
+            },
         }
-    }
-
-    pub fn get_state(&self) -> &ShapeState {
-        &self.state
-    }
-
-    pub fn set_state(&mut self, state: ShapeState) {
-        self.state = state;
     }
 }
 
@@ -93,6 +81,5 @@ impl BindingHandle for ShapeHandle {
 }
 
 impl DynamicBinding for ShapeHandle {
-    fn apply_changes(&mut self, transform: &Transform) {
-    }
+    fn apply_changes(&mut self, transform: &Transform) {}
 }

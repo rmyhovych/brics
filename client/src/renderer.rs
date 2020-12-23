@@ -5,7 +5,7 @@ pub trait Renderer {
     where
         Self: Sized;
 
-    fn render(&mut self, input_state: &InputState);
+    fn render(&mut self);
 
     fn request_redraw(&self);
 }

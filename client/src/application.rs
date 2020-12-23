@@ -1,23 +1,29 @@
-use crate::graphics::GraphicsManager;
-use crate::input::InputState;
-
 use crate::logic::GameLogic;
 use crate::renderer::Renderer;
 
 use winit;
 
-pub trait Application<R: 'static + Renderer, L: 'static + GameLogic<R>> {
-    fn create_renderer(event_loop: &winit::event_loop::EventLoop<()>) -> R;
+pub struct Application<R: 'static + Renderer, L: 'static + GameLogic<R>> {
+    _phantom_renderer: std::marker::PhantomData<R>,
+    _phantom_game_logic: std::marker::PhantomData<L>,
+}
 
-    fn create_game_logic(renderer: &mut R) -> L;
+impl<R: 'static + Renderer, L: 'static + GameLogic<R>> Application<R, L> {
+    pub fn new() -> Self {
+        Self {
+            _phantom_renderer: std::marker::PhantomData,
+            _phantom_game_logic: std::marker::PhantomData,
+        }
+    }
 
-    fn run(&mut self) {
+    pub fn run(&mut self) {
         let event_loop = winit::event_loop::EventLoop::new();
-        let mut renderer = Self::create_renderer(&event_loop);
 
-        let mut input_state = InputState::new();
+        let mut renderer = R::new(&event_loop);
+        let mut game_logic = L::new();
+        game_logic.setup(&mut renderer);
+
         let mut redraw_handler = RedrawHandler::new();
-
         event_loop.run(move |event, _, control_flow| {
             Self::suspend_control_flow(control_flow);
 
@@ -31,14 +37,15 @@ pub trait Application<R: 'static + Renderer, L: 'static + GameLogic<R>> {
                         *control_flow = winit::event_loop::ControlFlow::Exit;
                     }
                     _ => {
-                        input_state.handle(&event);
+                        game_logic.handle_input(&event);
                     }
                 },
                 winit::event::Event::Suspended | winit::event::Event::Resumed => {
                     println!("EVENT [{:?}]", event);
                 }
                 winit::event::Event::RedrawRequested(_) => {
-                    renderer.render(&input_state);
+                    renderer.render();
+                    game_logic.step();
                 }
                 _ => {}
             }
