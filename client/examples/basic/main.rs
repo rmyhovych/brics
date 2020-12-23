@@ -428,15 +428,13 @@ impl MainRenderer {
     }
 
     fn update_bindings(&self) {
-        /*
-        self.graphics.update_handle(self.camera.borrow());
+        self.graphics.update_handle(&self.camera);
         self.graphics.update_handle(&self.light_camera);
 
         self.graphics.update_handle(&self.light);
         self.shapes
             .iter()
             .for_each(|handle| self.graphics.update_handle(handle));
-        */
     }
 }
 
