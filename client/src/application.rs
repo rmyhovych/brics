@@ -1,14 +1,14 @@
 use crate::logic::GameLogic;
-use crate::renderer::Renderer;
+use crate::visual::Visual;
 
 use winit;
 
-pub struct Application<R: 'static + Renderer, L: 'static + GameLogic<R>> {
+pub struct Application<R: 'static + Visual, L: 'static + GameLogic<R>> {
     _phantom_renderer: std::marker::PhantomData<R>,
     _phantom_game_logic: std::marker::PhantomData<L>,
 }
 
-impl<R: 'static + Renderer, L: 'static + GameLogic<R>> Application<R, L> {
+impl<R: 'static + Visual, L: 'static + GameLogic<R>> Application<R, L> {
     pub fn new() -> Self {
         Self {
             _phantom_renderer: std::marker::PhantomData,
@@ -82,7 +82,7 @@ impl RedrawHandler {
         }
     }
 
-    fn request(&mut self, rend: &dyn Renderer) {
+    fn request(&mut self, rend: &dyn Visual) {
         #[cfg(not(target_arch = "wasm32"))]
         {
             if self.previous.elapsed() > std::time::Duration::from_millis(16) {

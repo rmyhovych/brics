@@ -19,16 +19,20 @@ use rustgame::{
     input::InputState,
     logic::GameLogic,
     object,
-    pipeline::{BindingLayoutEntries, Pipeline, Vertex},
+    pipeline::{BindingLayoutEntries, Geometry, Pipeline, Vertex},
     render_pass::{AttachmentView, RenderPass},
     renderer::Renderer,
+    visual::Visual,
 };
 
 use wgpu;
 use winit;
 
-pub struct MainRenderer {
+pub struct MainVisual {
     graphics: GraphicsManager,
+    renderer: Renderer,
+
+    pipeline_id: (u32, u32),
 
     /*------------------*/
     light_handle_layout: LightHandleLayout,
@@ -45,7 +49,7 @@ pub struct MainRenderer {
     shapes: Vec<ShapeHandle>,
 }
 
-impl Renderer for MainRenderer {
+impl Visual for MainVisual {
     fn new(event_loop: &winit::event_loop::EventLoop<()>) -> Self {
         let mut graphics: GraphicsManager =
             futures::executor::block_on(GraphicsManager::new(event_loop));
@@ -91,11 +95,17 @@ impl Renderer for MainRenderer {
         );
 
         let texture_view = depth_texture_handle.create_texture_view();
-        // Self::create_shadow_render_pass(graphics, shadow_pipeline, texture_view);
-        Self::create_material_render_pass(&mut graphics, material_pipeline);
+
+        let mut renderer = Renderer::new();
+        // Self::create_shadow_render_pass(&graphics, &mut renderer, shadow_pipeline, texture_view);
+        let pipeline_id =
+            Self::create_material_render_pass(&graphics, &mut renderer, material_pipeline);
 
         Self {
             graphics,
+            renderer,
+
+            pipeline_id,
 
             light_handle_layout,
             shape_handle_layout,
@@ -112,7 +122,7 @@ impl Renderer for MainRenderer {
 
     fn render(&mut self) {
         self.update_bindings();
-        self.graphics.render();
+        self.graphics.render(&self.renderer);
     }
 
     fn request_redraw(&self) {
@@ -120,7 +130,35 @@ impl Renderer for MainRenderer {
     }
 }
 
-impl MainRenderer {
+impl MainVisual {
+    pub fn create_shape_entity(&mut self, geometry: &Geometry) -> &mut ShapeHandle {
+        let pipeline = self
+            .renderer
+            .get_render_pass(self.pipeline_id.0)
+            .get_pipeline(self.pipeline_id.1);
+
+        let shape = self.shape_handle_layout.create_handle(&self.graphics);
+        self.shapes.push(shape);
+        let shape_ref = self.shapes.last_mut().unwrap();
+
+        self.graphics.add_pipeline_entity(
+            pipeline,
+            geometry,
+            vec![
+                &self.camera,
+                shape_ref,
+                &self.light,
+                &self.light_camera,
+                &self.depth_texture_handle,
+                &self.depth_sampler_handle,
+            ],
+        );
+
+        shape_ref
+    }
+
+    /*------------------------------------------------------------*/
+
     fn create_main_camera(
         handle_layout: &CameraHandleLayout,
         graphics: &GraphicsManager,
@@ -293,10 +331,11 @@ impl MainRenderer {
     }
 
     fn create_shadow_render_pass(
-        graphics: &mut GraphicsManager,
+        graphics: &GraphicsManager,
+        renderer: &mut Renderer,
         shadow_pipeline: Pipeline,
         depth_output: wgpu::TextureView,
-    ) {
+    ) -> (u32, u32) {
         let mut rpass = RenderPass::new();
         rpass.set_depth_attachment(
             depth_output,
@@ -306,11 +345,17 @@ impl MainRenderer {
             },
         );
 
-        rpass.add_pipeline(shadow_pipeline);
-        graphics.add_render_pass(rpass);
+        let mut pipeline_ids: (u32, u32) = (0, 0);
+        pipeline_ids.1 = rpass.add_pipeline(shadow_pipeline);
+        pipeline_ids.0 = renderer.add_render_pass(rpass);
+        pipeline_ids
     }
 
-    fn create_material_render_pass(graphics: &mut GraphicsManager, material_pipeline: Pipeline) {
+    fn create_material_render_pass(
+        graphics: &GraphicsManager,
+        renderer: &mut Renderer,
+        material_pipeline: Pipeline,
+    ) -> (u32, u32) {
         let depth_texture_view = graphics.create_depth_texture_view();
         let mut rpass = RenderPass::new();
         rpass
@@ -334,9 +379,11 @@ impl MainRenderer {
                 },
             );
 
-        rpass.add_pipeline(material_pipeline);
+        let mut pipeline_ids: (u32, u32) = (0, 0);
+        pipeline_ids.1 = rpass.add_pipeline(material_pipeline);
+        pipeline_ids.0 = renderer.add_render_pass(rpass);
 
-        graphics.add_render_pass(rpass);
+        pipeline_ids
     }
 
     fn update_bindings(&self) {

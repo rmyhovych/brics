@@ -54,10 +54,14 @@ impl RenderPass {
         self
     }
 
-    pub fn add_pipeline(&mut self, pipeline: Pipeline) -> &mut Pipeline {
+    pub fn add_pipeline(&mut self, pipeline: Pipeline) -> u32 {
         self.pipelines.push(pipeline);
 
-        self.pipelines.last_mut().unwrap()
+        (self.pipelines.len() - 1) as u32
+    }
+
+    pub fn get_pipeline(&mut self, id: u32) -> &mut Pipeline {
+        &mut self.pipelines[id as usize]
     }
 
     pub fn submit(&self, encoder: &mut wgpu::CommandEncoder, frame: &wgpu::SwapChainFrame) {

@@ -1,8 +1,8 @@
-use crate::renderer::Renderer;
+use crate::visual::Visual;
 
 use winit;
 
-pub trait GameLogic<R: Renderer> {
+pub trait GameLogic<R: Visual> {
     fn new() -> Self;
 
     fn setup(&mut self, renderer: &mut R);

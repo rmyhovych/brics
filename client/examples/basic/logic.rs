@@ -1,4 +1,4 @@
-use super::{renderer::MainRenderer, vertex::VertexBasic};
+use super::{visual::MainVisual, vertex::VertexBasic};
 
 use rustgame::{input::InputState, logic::GameLogic, object::Object};
 
@@ -75,7 +75,7 @@ pub struct MainLogic {
     controllers: Vec<Box<dyn Fn(&mut Object)>>,
 }
 
-impl GameLogic<MainRenderer> for MainLogic {
+impl GameLogic<MainVisual> for MainLogic {
     fn new() -> Self {
         Self {
             input_state: InputState::new(),
@@ -85,7 +85,7 @@ impl GameLogic<MainRenderer> for MainLogic {
         }
     }
 
-    fn setup(&mut self, renderer: &mut MainRenderer) {}
+    fn setup(&mut self, renderer: &mut MainVisual) {}
 
     fn step(&mut self) {
         self.controllers

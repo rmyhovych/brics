@@ -3,7 +3,7 @@ use core::panic;
 use wgpu::{self, util::DeviceExt};
 use winit;
 
-use crate::{binding, handle, pipeline, render_pass, shader};
+use crate::{binding, handle, pipeline, renderer::Renderer, shader};
 
 use shaderc;
 
@@ -14,8 +14,6 @@ pub struct GraphicsManager {
     window: winit::window::Window,
     surface: wgpu::Surface,
     swap_chain: wgpu::SwapChain,
-
-    render_passes: Vec<render_pass::RenderPass>,
 }
 
 impl GraphicsManager {
@@ -62,8 +60,6 @@ impl GraphicsManager {
             window,
             surface,
             swap_chain,
-
-            render_passes: Vec::new(),
         }
     }
 
@@ -77,7 +73,7 @@ impl GraphicsManager {
         swapchain_color_format
     }
 
-    pub fn render(&mut self) {
+    pub fn render(&mut self, renderer: &Renderer) {
         let frame = match self.swap_chain.get_current_frame() {
             Ok(frame) => frame,
             Err(_) => panic!("fuck off"),
@@ -86,9 +82,8 @@ impl GraphicsManager {
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
-        self.render_passes
-            .iter()
-            .for_each(|rpass| rpass.submit(&mut encoder, &frame));
+
+        renderer.submit(&mut encoder, &frame);
 
         self.queue.submit(Some(encoder.finish()));
     }
@@ -129,10 +124,6 @@ impl GraphicsManager {
         binding_layout: &impl binding::BindingLayout<B>,
     ) -> B {
         binding_layout.create_binding(&self.device)
-    }
-
-    pub fn add_render_pass(&mut self, rpass: render_pass::RenderPass) {
-        self.render_passes.push(rpass);
     }
 
     pub fn create_geometry<T: pipeline::Vertex>(
