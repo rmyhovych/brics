@@ -131,7 +131,7 @@ impl GameLogic<MainVisual> for MainLogic {
 
     fn step(&mut self) {
         for controller in &mut self.controllers {
-            controller.as_mut()(&self.input_state);
+            controller(&self.input_state);
         }
     }
 
