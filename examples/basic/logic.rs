@@ -1,6 +1,10 @@
 use super::{vertex::VertexBasic, visual::MainVisual};
 
-use rustgame::{input::InputState, logic::GameLogic, pipeline::Geometry};
+use rustgame::{
+    application::{GameLogic, Visual},
+    input::InputState,
+    pipeline::Geometry,
+};
 
 use cgmath::{InnerSpace, Matrix4, Point3, Vector3};
 
@@ -107,23 +111,21 @@ impl GameLogic<MainVisual> for MainLogic {
         let camera = visual.get_main_camera();
         let angle_multiplier = 0.004;
         let mut previous_mouse_input: Option<winit::dpi::PhysicalPosition<f64>> = None;
-        self.add_controller(move |input: &InputState| {
-            match input.mouse.button {
-                Some(_) => {
-                    if let Some(previous) = previous_mouse_input {
-                        let delta_x = input.mouse.location.x - previous.x;
-                        let delta_y = input.mouse.location.y - previous.y;
+        self.add_controller(move |input: &InputState| match input.mouse.button {
+            Some(_) => {
+                if let Some(previous) = previous_mouse_input {
+                    let delta_x = input.mouse.location.x - previous.x;
+                    let delta_y = input.mouse.location.y - previous.y;
 
-                        camera.get().rotate_around_center(
-                            -angle_multiplier * delta_x as f32,
-                            -angle_multiplier * delta_y as f32,
-                        );
-                    }
-
-                    previous_mouse_input = Some(input.mouse.location);
+                    camera.get().rotate_around_center(
+                        -angle_multiplier * delta_x as f32,
+                        -angle_multiplier * delta_y as f32,
+                    );
                 }
-                None => previous_mouse_input = None,
+
+                previous_mouse_input = Some(input.mouse.location);
             }
+            None => previous_mouse_input = None,
         });
     }
 

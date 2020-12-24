@@ -3,6 +3,7 @@ extern crate rustgame;
 use super::vertex::VertexBasic;
 
 use rustgame::{
+    application::{GameLogic, Visual},
     binding::{
         sampler::{SamplerAddressMode, SamplerFilterMode},
         texture::TextureBinding,
@@ -17,11 +18,9 @@ use rustgame::{
         BindingHandle, BindingHandleLayout, BindingProxy,
     },
     input::InputState,
-    logic::GameLogic,
     pipeline::{BindingLayoutEntries, Geometry, Pipeline, Vertex},
     render_pass::{AttachmentView, RenderPass},
     renderer::Renderer,
-    visual::Visual,
 };
 
 use wgpu;

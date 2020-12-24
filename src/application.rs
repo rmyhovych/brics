@@ -1,7 +1,24 @@
-use crate::logic::GameLogic;
-use crate::visual::Visual;
-
 use winit;
+
+pub trait GameLogic<R: Visual> {
+    fn new() -> Self;
+
+    fn setup(&mut self, renderer: &mut R);
+
+    fn step(&mut self);
+
+    fn handle_input(&mut self, event: &winit::event::WindowEvent);
+}
+
+pub trait Visual {
+    fn new(event_loop: &winit::event_loop::EventLoop<()>) -> Self
+    where
+        Self: Sized;
+
+    fn render(&mut self);
+
+    fn request_redraw(&self);
+}
 
 pub struct Application<R: 'static + Visual, L: 'static + GameLogic<R>> {
     _phantom_renderer: std::marker::PhantomData<R>,
