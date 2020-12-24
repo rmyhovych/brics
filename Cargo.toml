@@ -23,7 +23,7 @@ version = "0.6"
 # name = "rustgame"
 # path = "src/lib.rs"
 
-#[lib]
+[lib]
 #crate-type = ["cdylib"]
 
 [dependencies]
