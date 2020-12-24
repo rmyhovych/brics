@@ -5,10 +5,9 @@ use crate::{
         Binding,
     },
     graphics::GraphicsManager,
-    object::{DynamicBinding, Transform},
 };
 
-use cgmath::{Matrix4, Vector3};
+use cgmath::{InnerSpace, Matrix4, Quaternion, Rad, Vector3};
 
 use wgpu;
 
@@ -68,6 +67,24 @@ impl ShapeHandle {
             },
         }
     }
+
+    pub fn translate(&mut self, delta: Vector3<f32>) {
+        self.state.model = Matrix4::from_translation(delta) * self.state.model;
+    }
+
+    pub fn rotate(&mut self, axis: Vector3<f32>, angle: f32) {
+        self.state.model =
+            self.state.model * Matrix4::from_axis_angle(axis.normalize(), Rad(angle));
+    }
+
+    pub fn set_color(&mut self, color: Vector3<f32>) {
+        self.state.color = color;
+    }
+
+    pub fn rescale(&mut self, multiplier: Vector3<f32>) {
+        self.state.model = self.state.model
+            * Matrix4::from_nonuniform_scale(multiplier.x, multiplier.y, multiplier.z);
+    }
 }
 
 impl BindingHandle for ShapeHandle {
@@ -78,8 +95,4 @@ impl BindingHandle for ShapeHandle {
     fn update(&self, write_queue: &wgpu::Queue) {
         self.binding.update(&self.state, write_queue);
     }
-}
-
-impl DynamicBinding for ShapeHandle {
-    fn apply_changes(&mut self, transform: &Transform) {}
 }

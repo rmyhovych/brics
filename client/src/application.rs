@@ -19,17 +19,18 @@ impl<R: 'static + Visual, L: 'static + GameLogic<R>> Application<R, L> {
     pub fn run(&mut self) {
         let event_loop = winit::event_loop::EventLoop::new();
 
-        let mut renderer = R::new(&event_loop);
-        let mut game_logic = L::new();
-        game_logic.setup(&mut renderer);
+        let mut visual = Box::new(R::new(&event_loop));
+        let mut game_logic = Box::new(L::new());
+        game_logic.setup(visual.as_mut());
 
         let mut redraw_handler = RedrawHandler::new();
         event_loop.run(move |event, _, control_flow| {
+            let _ = (&visual, &game_logic);
             Self::suspend_control_flow(control_flow);
 
             match event {
                 winit::event::Event::MainEventsCleared => {
-                    redraw_handler.request(&renderer);
+                    redraw_handler.request(visual.as_ref());
                 }
 
                 winit::event::Event::WindowEvent { event, .. } => match event {
@@ -44,7 +45,7 @@ impl<R: 'static + Visual, L: 'static + GameLogic<R>> Application<R, L> {
                     println!("EVENT [{:?}]", event);
                 }
                 winit::event::Event::RedrawRequested(_) => {
-                    renderer.render();
+                    visual.render();
                     game_logic.step();
                 }
                 _ => {}

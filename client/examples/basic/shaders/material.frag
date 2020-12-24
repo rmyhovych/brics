@@ -40,7 +40,7 @@ void main() {
     vec3 specular = 0.5 * pow(max(dot(view_dir, reflect_dir), 0.0), 16) * v_in_LightColor;
     vec3 diffuse = max(dot(v_in_Norm, light_dir), 0.0) * v_in_LightColor;
 
-    float shadow = 1.0; // fetch_shadow(m_in_PVLight * vec4(v_in_FragPos, 1.0));
+    float shadow = fetch_shadow(m_in_PVLight * vec4(v_in_FragPos, 1.0));
     vec3 result = shadow * (diffuse + specular) * v_in_Color;
 
     o_Color = vec4(result, 1.0);

@@ -1,10 +1,10 @@
-use super::{visual::MainVisual, vertex::VertexBasic};
+use super::{vertex::VertexBasic, visual::MainVisual};
 
-use rustgame::{input::InputState, logic::GameLogic, object::Object};
+use rustgame::{input::InputState, logic::GameLogic, pipeline::Geometry};
 
 use cgmath::{InnerSpace, Matrix4, Point3, Vector3};
 
-use winit::event::WindowEvent;
+use winit::event::{VirtualKeyCode, WindowEvent};
 
 /*--------------------------------------------------------------------------------------------------*/
 
@@ -71,8 +71,7 @@ fn create_vertices() -> (Vec<VertexBasic>, Vec<u16>) {
 pub struct MainLogic {
     input_state: InputState,
 
-    objects: Vec<Object>,
-    controllers: Vec<Box<dyn Fn(&mut Object)>>,
+    controllers: Vec<Box<dyn FnMut(&InputState)>>,
 }
 
 impl GameLogic<MainVisual> for MainLogic {
@@ -80,24 +79,103 @@ impl GameLogic<MainVisual> for MainLogic {
         Self {
             input_state: InputState::new(),
 
-            objects: Vec::new(),
             controllers: Vec::new(),
         }
     }
 
-    fn setup(&mut self, renderer: &mut MainVisual) {}
+    fn setup(&mut self, visual: &mut MainVisual) {
+        let geometry = self.get_cube_geometry(visual);
+
+        let shape = visual.create_shape_entity(&geometry);
+        shape.get().rescale(Vector3::new(5.0, 0.02, 5.0));
+        shape.get().translate(Vector3::new(0.0, -0.5, 0.0));
+
+        let shape = visual.create_shape_entity(&geometry);
+        shape.get().translate(Vector3::new(0.0, 0.5, 0.0));
+        shape.get().set_color(Vector3::new(0.2, 0.8, 0.2));
+        shape.get().rescale(Vector3::new(0.5, 0.5, 0.5));
+
+        let light = visual.get_light();
+        let light_camera = visual.get_light_camera();
+        let camera = visual.get_main_camera();
+        self.add_controller(move |_| {
+            light_camera
+                .get()
+                .look_at_dir(camera.get().get_center(), -light.get().get_direction());
+        });
+
+        let camera = visual.get_main_camera();
+        let angle_multiplier = 0.004;
+        let mut previous_mouse_input: Option<winit::dpi::PhysicalPosition<f64>> = None;
+        self.add_controller(move |input: &InputState| {
+            match input.mouse.button {
+                Some(_) => {
+                    if let Some(previous) = previous_mouse_input {
+                        let delta_x = input.mouse.location.x - previous.x;
+                        let delta_y = input.mouse.location.y - previous.y;
+
+                        camera.get().rotate_around_center(
+                            -angle_multiplier * delta_x as f32,
+                            -angle_multiplier * delta_y as f32,
+                        );
+                    }
+
+                    previous_mouse_input = Some(input.mouse.location);
+                }
+                None => previous_mouse_input = None,
+            }
+
+            /*
+            {
+                let keyboard_pressed = &input.keyboard.pressed;
+
+                let direction = camera.get().get_direction().normalize();
+                let right = direction.cross(cgmath::Vector3::unit_y()).normalize();
+
+                let mut movement = cgmath::Vector3 {
+                    x: 0.0,
+                    y: 0.0,
+                    z: 0.0,
+                };
+                if keyboard_pressed.contains(&VirtualKeyCode::W) {
+                    movement += direction;
+                }
+                if keyboard_pressed.contains(&VirtualKeyCode::S) {
+                    movement -= direction;
+                }
+                if keyboard_pressed.contains(&VirtualKeyCode::D) {
+                    movement += right;
+                }
+                if keyboard_pressed.contains(&VirtualKeyCode::A) {
+                    movement -= right;
+                }
+
+                if movement.magnitude2() > 0.0 {
+                    movement = movement.normalize_to(movement_speed);
+                }
+            }
+            */
+        });
+    }
 
     fn step(&mut self) {
-        self.controllers
-            .iter()
-            .zip(self.objects.iter_mut())
-            .for_each(|(controller, object)| {
-                controller(object);
-                object.apply_changes();
-            });
+        for controller in &mut self.controllers {
+            controller.as_mut()(&self.input_state);
+        }
     }
 
     fn handle_input(&mut self, event: &WindowEvent) {
         self.input_state.handle(event);
+    }
+}
+
+impl MainLogic {
+    fn get_cube_geometry(&self, visual: &mut MainVisual) -> Geometry {
+        let (vertices, indices) = create_vertices();
+        visual.create_geometry(vertices, indices)
+    }
+
+    fn add_controller<C: FnMut(&InputState) + 'static>(&mut self, ctrl: C) {
+        self.controllers.push(Box::new(ctrl));
     }
 }

@@ -8,7 +8,6 @@ use crate::{
         Binding,
     },
     graphics::GraphicsManager,
-    object::{DynamicBinding, Transform},
 };
 
 /*--------------------------------------------------------------------------------------------------*/
@@ -184,8 +183,4 @@ impl BindingHandle for CameraHandle {
         let uniform_data = CameraState::new(&self.projection, &self.eye, &self.center);
         self.binding.update(&uniform_data, write_queue);
     }
-}
-
-impl DynamicBinding for CameraHandle {
-    fn apply_changes(&mut self, transform: &Transform) {}
 }

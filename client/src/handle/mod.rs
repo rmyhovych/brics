@@ -23,3 +23,18 @@ pub trait BindingHandle {
 
     fn update(&self, write_queue: &wgpu::Queue);
 }
+
+/*----------------------------------------------------------------------------------*/
+pub struct BindingProxy<H: BindingHandle> {
+    mem: *mut H,
+}
+
+impl<H: BindingHandle> BindingProxy<H> {
+    pub fn new(binding: &mut H) -> Self {
+        Self { mem: binding }
+    }
+
+    pub fn get(&self) -> &mut H {
+        unsafe { self.mem.as_mut().unwrap() }
+    }
+}

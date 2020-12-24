@@ -14,11 +14,10 @@ use rustgame::{
         sampler::{SamplerHandle, SamplerHandleLayout},
         shape::{ShapeHandle, ShapeHandleLayout},
         texture::{TextureHandle, TextureHandleLayout},
-        BindingHandle, BindingHandleLayout,
+        BindingHandle, BindingHandleLayout, BindingProxy,
     },
     input::InputState,
     logic::GameLogic,
-    object,
     pipeline::{BindingLayoutEntries, Geometry, Pipeline, Vertex},
     render_pass::{AttachmentView, RenderPass},
     renderer::Renderer,
@@ -33,6 +32,7 @@ pub struct MainVisual {
     renderer: Renderer,
 
     pipeline_id: (u32, u32),
+    shadow_pipeline_id: (u32, u32),
 
     /*------------------*/
     light_handle_layout: LightHandleLayout,
@@ -51,7 +51,7 @@ pub struct MainVisual {
 
 impl Visual for MainVisual {
     fn new(event_loop: &winit::event_loop::EventLoop<()>) -> Self {
-        let mut graphics: GraphicsManager =
+        let graphics: GraphicsManager =
             futures::executor::block_on(GraphicsManager::new(event_loop));
 
         let camera_handle_layout = CameraHandleLayout::new(wgpu::ShaderStage::VERTEX);
@@ -63,11 +63,6 @@ impl Visual for MainVisual {
         let light = Self::create_light(&light_handle_layout, &graphics);
 
         let shape_handle_layout = ShapeHandleLayout::new(wgpu::ShaderStage::VERTEX);
-
-        /*
-        let (vertices, indices) = create_vertices();
-        let cube_geometry = graphics.create_geometry(vertices, indices);
-        */
 
         let (
             depth_texture_handle_layout,
@@ -97,7 +92,12 @@ impl Visual for MainVisual {
         let texture_view = depth_texture_handle.create_texture_view();
 
         let mut renderer = Renderer::new();
-        // Self::create_shadow_render_pass(&graphics, &mut renderer, shadow_pipeline, texture_view);
+        let shadow_pipeline_id = Self::create_shadow_render_pass(
+            &graphics,
+            &mut renderer,
+            shadow_pipeline,
+            texture_view,
+        );
         let pipeline_id =
             Self::create_material_render_pass(&graphics, &mut renderer, material_pipeline);
 
@@ -106,6 +106,7 @@ impl Visual for MainVisual {
             renderer,
 
             pipeline_id,
+            shadow_pipeline_id,
 
             light_handle_layout,
             shape_handle_layout,
@@ -131,7 +132,23 @@ impl Visual for MainVisual {
 }
 
 impl MainVisual {
-    pub fn create_shape_entity(&mut self, geometry: &Geometry) -> &mut ShapeHandle {
+    pub fn create_geometry(&self, vertices: Vec<impl Vertex>, indices: Vec<u16>) -> Geometry {
+        self.graphics.create_geometry(vertices, indices)
+    }
+
+    pub fn get_main_camera(&mut self) -> BindingProxy<CameraHandle> {
+        BindingProxy::new(&mut self.camera)
+    }
+
+    pub fn get_light_camera(&mut self) -> BindingProxy<CameraHandle> {
+        BindingProxy::new(&mut self.light_camera)
+    }
+
+    pub fn get_light(&mut self) -> BindingProxy<LightHandle> {
+        BindingProxy::new(&mut self.light)
+    }
+
+    pub fn create_shape_entity(&mut self, geometry: &Geometry) -> BindingProxy<ShapeHandle> {
         let pipeline = self
             .renderer
             .get_render_pass(self.pipeline_id.0)
@@ -154,7 +171,15 @@ impl MainVisual {
             ],
         );
 
-        shape_ref
+        let pipeline = self
+            .renderer
+            .get_render_pass(self.shadow_pipeline_id.0)
+            .get_pipeline(self.shadow_pipeline_id.1);
+
+        self.graphics
+            .add_pipeline_entity(pipeline, geometry, vec![&self.light_camera, shape_ref]);
+
+        BindingProxy::new(shape_ref)
     }
 
     /*------------------------------------------------------------*/

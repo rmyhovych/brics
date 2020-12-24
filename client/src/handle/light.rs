@@ -5,7 +5,6 @@ use crate::{
         Binding,
     },
     graphics::GraphicsManager,
-    object::{DynamicBinding, Transform},
 };
 use cgmath::{InnerSpace, Vector3};
 
@@ -110,8 +109,4 @@ impl BindingHandle for LightHandle {
     fn update(&self, write_queue: &wgpu::Queue) {
         self.binding.update(&self.state, write_queue);
     }
-}
-
-impl DynamicBinding for LightHandle {
-    fn apply_changes(&mut self, transform: &Transform) {}
 }
