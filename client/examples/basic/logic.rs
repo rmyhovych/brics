@@ -124,37 +124,6 @@ impl GameLogic<MainVisual> for MainLogic {
                 }
                 None => previous_mouse_input = None,
             }
-
-            /*
-            {
-                let keyboard_pressed = &input.keyboard.pressed;
-
-                let direction = camera.get().get_direction().normalize();
-                let right = direction.cross(cgmath::Vector3::unit_y()).normalize();
-
-                let mut movement = cgmath::Vector3 {
-                    x: 0.0,
-                    y: 0.0,
-                    z: 0.0,
-                };
-                if keyboard_pressed.contains(&VirtualKeyCode::W) {
-                    movement += direction;
-                }
-                if keyboard_pressed.contains(&VirtualKeyCode::S) {
-                    movement -= direction;
-                }
-                if keyboard_pressed.contains(&VirtualKeyCode::D) {
-                    movement += right;
-                }
-                if keyboard_pressed.contains(&VirtualKeyCode::A) {
-                    movement -= right;
-                }
-
-                if movement.magnitude2() > 0.0 {
-                    movement = movement.normalize_to(movement_speed);
-                }
-            }
-            */
         });
     }
 
