@@ -89,6 +89,10 @@ impl ShapeHandle {
     }
 
     pub fn rescale(&mut self, multiplier: Vector3<f32>) {
+        self.scale.x = self.scale.x * multiplier.x;
+        self.scale.y = self.scale.y * multiplier.y;
+        self.scale.z = self.scale.z * multiplier.z;
+
         self.state.model = self.state.model
             * Matrix4::from_nonuniform_scale(multiplier.x, multiplier.y, multiplier.z);
     }
