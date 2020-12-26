@@ -70,7 +70,7 @@ impl ShapeHandle {
 
     pub fn set_position(&mut self, position: Vector3<f32>) {
         self.state.model.w.x = position.x;
-        self.state.model.w.y = position.;
+        self.state.model.w.y = position.y;
         self.state.model.w.z = position.z;
     }
 
