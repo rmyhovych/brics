@@ -90,14 +90,17 @@ impl GameLogic<MainVisual> for MainLogic {
     fn setup(&mut self, visual: &mut MainVisual) {
         let geometry = self.get_cube_geometry(visual);
 
-        let shape = visual.create_shape_entity(&geometry);
-        shape.get().rescale(Vector3::new(5.0, 0.02, 5.0));
-        shape.get().translate(Vector3::new(0.0, -0.5, 0.0));
+        let ground = visual.create_shape_entity(&geometry);
+        ground.get().rescale(Vector3::new(5.0, 0.02, 5.0));
+        ground.get().translate(Vector3::new(0.0, -0.5, 0.0));
 
-        let shape = visual.create_shape_entity(&geometry);
-        shape.get().translate(Vector3::new(0.0, 0.5, 0.0));
-        shape.get().set_color(Vector3::new(0.2, 0.8, 0.2));
-        shape.get().rescale(Vector3::new(0.5, 0.5, 0.5));
+        let cube = visual.create_shape_entity(&geometry);
+        cube.get().translate(Vector3::new(0.0, 0.5, 0.0));
+        cube.get().set_color(Vector3::new(0.2, 0.8, 0.2));
+        cube.get().rescale(Vector3::new(0.5, 0.5, 0.5));
+        self.add_controller(move |_| {
+            cube.get().rotate(Vector3::new(0.2, 0.5, 0.9), 0.01);
+        });
 
         let light = visual.get_light();
         let light_camera = visual.get_light_camera();
