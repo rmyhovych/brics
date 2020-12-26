@@ -49,6 +49,7 @@ impl BindingHandleLayout<UniformBinding, UniformBindingLayout, ShapeHandle> for 
 pub struct ShapeHandle {
     binding: UniformBinding,
 
+    scale: Vector3<f32>,
     state: ShapeState,
 }
 
@@ -57,6 +58,7 @@ impl ShapeHandle {
         Self {
             binding,
 
+            scale: Vector3::new(1.0, 1.0, 1.0),
             state: ShapeState {
                 model: Matrix4::from_scale(1.0),
                 color: Vector3 {
@@ -69,7 +71,8 @@ impl ShapeHandle {
     }
 
     pub fn set_model(&mut self, model: Matrix4<f32>) {
-        self.state.model = model;
+        self.state.model =
+            model * Matrix4::from_nonuniform_scale(self.scale.x, self.scale.y, self.scale.z);
     }
 
     pub fn translate(&mut self, delta: Vector3<f32>) {
