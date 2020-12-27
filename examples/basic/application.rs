@@ -1,7 +1,9 @@
-use super::{vertex::VertexBasic, visual::MainVisual};
+use crate::visual;
+
+use super::{vertex::VertexBasic, visual::BasicVisual};
 
 use brics::{
-    application::{GameLogic, Visual},
+    application::{Application, Visual},
     input::InputState,
     pipeline::Geometry,
 };
@@ -72,29 +74,54 @@ fn create_vertices() -> (Vec<VertexBasic>, Vec<u16>) {
 
 /*--------------------------------------------------------------------------------------------------*/
 
-pub struct MainLogic {
+pub struct BasicApplication {
+    visual: BasicVisual,
     input_state: InputState,
 
     controllers: Vec<Box<dyn FnMut(&InputState)>>,
 }
 
-impl GameLogic<MainVisual> for MainLogic {
-    fn new() -> Self {
-        Self {
+impl Application for BasicApplication {
+    fn new(event_loop: &winit::event_loop::EventLoop<()>) -> Self {
+        let mut app = Self {
+            visual: BasicVisual::new(event_loop),
             input_state: InputState::new(),
 
             controllers: Vec::new(),
-        }
+        };
+
+        app.setup();
+
+        app
     }
 
-    fn setup(&mut self, visual: &mut MainVisual) {
-        let geometry = self.get_cube_geometry(visual);
+    fn step(&mut self) {
+        for controller in &mut self.controllers {
+            controller(&self.input_state);
+        }
 
-        let ground = visual.create_shape_entity(&geometry);
+        self.visual.render();
+    }
+
+    fn handle_input(&mut self, event: &WindowEvent) {
+        self.input_state.handle(event);
+    }
+
+    fn request_redraw(&self) {
+        self.visual.request_redraw();
+    }
+}
+
+impl BasicApplication {
+    fn setup(&mut self) {
+        /*
+        let geometry = self.get_cube_geometry();
+
+        let ground = self.visual.create_shape_entity(&geometry);
         ground.get().rescale(Vector3::new(5.0, 0.02, 5.0));
         ground.get().translate(Vector3::new(0.0, -0.5, 0.0));
 
-        let cube = visual.create_shape_entity(&geometry);
+        let cube = self.visual.create_shape_entity(&geometry);
         cube.get().translate(Vector3::new(0.0, 0.5, 0.0));
         cube.get().set_color(Vector3::new(0.2, 0.8, 0.2));
         cube.get().rescale(Vector3::new(0.5, 0.5, 0.5));
@@ -102,16 +129,16 @@ impl GameLogic<MainVisual> for MainLogic {
             cube.get().rotate(Vector3::new(0.2, 0.5, 0.9), 0.01);
         });
 
-        let light = visual.get_light();
-        let light_camera = visual.get_light_camera();
-        let camera = visual.get_main_camera();
+        let light = self.visual.get_light();
+        let light_camera = self.visual.get_light_camera();
+        let camera = self.visual.get_main_camera();
         self.add_controller(move |_| {
             light_camera
                 .get()
                 .look_at_dir(camera.get().get_center(), -light.get().get_direction());
         });
 
-        let camera = visual.get_main_camera();
+        let camera = self.visual.get_main_camera();
         let angle_multiplier = 0.004;
         let mut previous_mouse_input: Option<winit::dpi::PhysicalPosition<f64>> = None;
         self.add_controller(move |input: &InputState| match input.mouse.button {
@@ -130,23 +157,12 @@ impl GameLogic<MainVisual> for MainLogic {
             }
             None => previous_mouse_input = None,
         });
+        */
     }
 
-    fn step(&mut self) {
-        for controller in &mut self.controllers {
-            controller(&self.input_state);
-        }
-    }
-
-    fn handle_input(&mut self, event: &WindowEvent) {
-        self.input_state.handle(event);
-    }
-}
-
-impl MainLogic {
-    fn get_cube_geometry(&self, visual: &mut MainVisual) -> Geometry {
+    fn get_cube_geometry(&self) -> Geometry {
         let (vertices, indices) = create_vertices();
-        visual.create_geometry(vertices, indices)
+        self.visual.create_geometry(vertices, indices)
     }
 
     fn add_controller<C: FnMut(&InputState) + 'static>(&mut self, ctrl: C) {

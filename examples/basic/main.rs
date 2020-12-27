@@ -1,12 +1,13 @@
 extern crate brics;
 
-mod logic;
+mod application;
+mod script;
 mod vertex;
 mod visual;
 
-use brics::application::Application;
+use application::BasicApplication;
+use brics::run::run;
 
 fn main() {
-    let mut app: Application<visual::MainVisual, logic::MainLogic> = Application::new();
-    app.run();
+    run::<BasicApplication>(60);
 }

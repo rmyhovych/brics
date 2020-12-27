@@ -1,7 +1,7 @@
 use super::vertex::VertexBasic;
 
 use brics::{
-    application::{GameLogic, Visual},
+    application::{Application, Visual},
     binding::{
         sampler::{SamplerAddressMode, SamplerFilterMode},
         texture::TextureBinding,
@@ -24,7 +24,7 @@ use brics::{
 use wgpu;
 use winit;
 
-pub struct MainVisual {
+pub struct BasicVisual {
     graphics: GraphicsManager,
     renderer: Renderer,
 
@@ -46,7 +46,7 @@ pub struct MainVisual {
     shapes: Vec<ShapeHandle>,
 }
 
-impl Visual for MainVisual {
+impl Visual for BasicVisual {
     fn new(event_loop: &winit::event_loop::EventLoop<()>) -> Self {
         let graphics: GraphicsManager =
             futures::executor::block_on(GraphicsManager::new(event_loop));
@@ -128,7 +128,7 @@ impl Visual for MainVisual {
     }
 }
 
-impl MainVisual {
+impl BasicVisual {
     pub fn create_geometry(&self, vertices: Vec<impl Vertex>, indices: Vec<u16>) -> Geometry {
         self.graphics.create_geometry(vertices, indices)
     }
