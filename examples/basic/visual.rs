@@ -1,8 +1,6 @@
-extern crate rustgame;
-
 use super::vertex::VertexBasic;
 
-use rustgame::{
+use brics::{
     application::{GameLogic, Visual},
     binding::{
         sampler::{SamplerAddressMode, SamplerFilterMode},

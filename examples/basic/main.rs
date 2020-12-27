@@ -1,10 +1,10 @@
-extern crate rustgame;
+extern crate brics;
 
 mod logic;
-mod visual;
 mod vertex;
+mod visual;
 
-use rustgame::application::Application;
+use brics::application::Application;
 
 fn main() {
     let mut app: Application<visual::MainVisual, logic::MainLogic> = Application::new();

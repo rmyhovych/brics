@@ -1,6 +1,6 @@
 use super::{vertex::VertexBasic, visual::MainVisual};
 
-use rustgame::{
+use brics::{
     application::{GameLogic, Visual},
     input::InputState,
     pipeline::Geometry,

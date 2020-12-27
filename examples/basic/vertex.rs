@@ -1,5 +1,5 @@
 use cgmath::{Point3, Vector3};
-use rustgame::pipeline::Vertex;
+use brics::pipeline::Vertex;
 
 pub struct VertexBasic {
     _position: Point3<f32>,
