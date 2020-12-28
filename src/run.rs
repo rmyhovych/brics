@@ -6,7 +6,7 @@ pub fn run<A: Application + 'static, C: ApplicationController<A> + 'static>(fps:
     let mut app = Box::new(A::new(&event_loop));
     let mut controller = C::new(&mut app);
 
-    let mut redraw_handler = RedrawHandler::new();
+    let mut redraw_handler = RedrawHandler::new(fps);
     event_loop.run(move |event, _, control_flow| {
         let _ = &app;
 
@@ -57,19 +57,22 @@ fn suspend_control_flow(control_flow: &mut winit::event_loop::ControlFlow) {
 struct RedrawHandler {
     #[cfg(not(target_arch = "wasm32"))]
     previous: std::time::Instant,
+
+    wait_ms: u64,
 }
 
 impl RedrawHandler {
-    fn new() -> Self {
+    fn new(fps: u32) -> Self {
         Self {
             previous: std::time::Instant::now(),
+            wait_ms: (1000 / (fps + 2)) as u64,
         }
     }
 
     fn request(&mut self, app: &dyn Application) {
         #[cfg(not(target_arch = "wasm32"))]
         {
-            if self.previous.elapsed() > std::time::Duration::from_millis(16) {
+            if self.previous.elapsed() > std::time::Duration::from_millis(self.wait_ms) {
                 app.request_redraw();
                 self.previous = std::time::Instant::now();
             }
