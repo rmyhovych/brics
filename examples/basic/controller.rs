@@ -1,5 +1,8 @@
 use super::application::BasicApplication;
-use brics::{application::ApplicationController, script::*};
+use brics::{
+    application::ApplicationController, handle::camera::CameraHandle, pipeline::Geometry, script::*,
+};
+use cgmath::Vector3;
 
 pub struct BasicController {
     scripts: Vec<Box<dyn Script<BasicApplication>>>,
@@ -7,14 +10,8 @@ pub struct BasicController {
 
 impl ApplicationController<BasicApplication> for BasicController {
     fn new(app: &mut BasicApplication) -> Self {
-        let camera_controller = ObjectController::new(app.visual.get_main_camera(), |cam, _| {});
-
         /*
         let geometry = self.get_cube_geometry();
-
-        let ground = self.visual.create_shape_entity(&geometry);
-        ground.get().rescale(Vector3::new(5.0, 0.02, 5.0));
-        ground.get().translate(Vector3::new(0.0, -0.5, 0.0));
 
         let cube = self.visual.create_shape_entity(&geometry);
         cube.get().translate(Vector3::new(0.0, 0.5, 0.0));
@@ -54,8 +51,11 @@ impl ApplicationController<BasicApplication> for BasicController {
         });
         */
 
+        let geometry = app.get_cube_geometry();
+        create_ground(app, &geometry);
+
         Self {
-            scripts: vec![Box::new(camera_controller)],
+            scripts: vec![Box::new(get_main_camera_script(app))],
         }
     }
 
@@ -64,4 +64,40 @@ impl ApplicationController<BasicApplication> for BasicController {
             script.update(app);
         }
     }
+}
+
+fn create_ground(app: &mut BasicApplication, geometry: &Geometry) {
+    let ground = app.visual.create_shape_entity(&geometry);
+    ground.rescale(Vector3::new(5.0, 0.02, 5.0));
+    ground.translate(Vector3::new(0.0, -0.5, 0.0));
+}
+
+fn get_main_camera_script(
+    app: &mut BasicApplication,
+) -> ObjectController<CameraHandle, BasicApplication> {
+    let angle_multiplier = 0.004;
+    let mut previous_mouse_input: Option<winit::dpi::PhysicalPosition<f64>> = None;
+
+    ObjectController::new(
+        app.visual.get_main_camera(),
+        move |cam, app: &mut BasicApplication| {
+            let input = &app.input_state;
+            match input.mouse.button {
+                Some(_) => {
+                    if let Some(previous) = previous_mouse_input {
+                        let delta_x = input.mouse.location.x - previous.x;
+                        let delta_y = input.mouse.location.y - previous.y;
+
+                        cam.rotate_around_center(
+                            -angle_multiplier * delta_x as f32,
+                            -angle_multiplier * delta_y as f32,
+                        );
+                    }
+
+                    previous_mouse_input = Some(input.mouse.location);
+                }
+                None => previous_mouse_input = None,
+            };
+        },
+    )
 }
