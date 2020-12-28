@@ -25,7 +25,7 @@ impl ApplicationController<BasicApplication> for BasicController {
         }
     }
 
-    fn step(&mut self, app: &mut BasicApplication) {
+    fn step(&mut self, app: &mut BasicApplication, _: f32) {
         for script in self.scripts.iter_mut() {
             script.update(app);
         }

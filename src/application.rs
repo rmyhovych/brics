@@ -28,5 +28,5 @@ pub trait Application {
 pub trait ApplicationController<A: Application> {
     fn new(app: &mut A) -> Self;
 
-    fn step(&mut self, app: &mut A);
+    fn step(&mut self, app: &mut A, time_step: f32);
 }
