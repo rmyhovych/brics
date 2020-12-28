@@ -115,7 +115,7 @@ impl GraphicsManager {
         self.window.inner_size()
     }
 
-    pub fn update_handle<T: handle::BindingHandle>(&self, binding_handle: &T) {
+    pub fn update_handle<T: handle::BindingHandle>(&self, binding_handle: std::cell::Ref<T>) {
         binding_handle.update(&self.queue);
     }
 

@@ -34,8 +34,8 @@ impl ApplicationController<BasicApplication> for BasicController {
 
 fn create_ground(app: &mut BasicApplication, geometry: &Geometry) {
     let ground = app.visual.create_shape_entity(&geometry);
-    ground.rescale(Vector3::new(5.0, 0.02, 5.0));
-    ground.translate(Vector3::new(0.0, -0.5, 0.0));
+    ground.borrow_mut().rescale(Vector3::new(5.0, 0.02, 5.0));
+    ground.borrow_mut().translate(Vector3::new(0.0, -0.5, 0.0));
 }
 
 fn get_main_camera_script(
@@ -46,7 +46,7 @@ fn get_main_camera_script(
 
     ObjectController::new(
         app.visual.get_main_camera(),
-        move |cam, app: &mut BasicApplication| {
+        move |mut cam, app: &mut BasicApplication| {
             let input = &app.input_state;
             match input.mouse.button {
                 Some(_) => {
@@ -70,9 +70,9 @@ fn get_main_camera_script(
 
 fn get_light_camera_script() -> LogicScript<BasicApplication> {
     LogicScript::new(|app: &mut BasicApplication| {
-        app.visual.get_light_camera().look_at_dir(
-            app.visual.get_main_camera().get_center(),
-            -app.visual.get_light().get_direction(),
+        app.visual.get_light_camera().borrow_mut().look_at_dir(
+            app.visual.get_main_camera().borrow_mut().get_center(),
+            -app.visual.get_light().borrow_mut().get_direction(),
         );
     })
 }
@@ -82,10 +82,14 @@ fn get_cube_script(
     geometry: &Geometry,
 ) -> ObjectController<ShapeHandle, BasicApplication> {
     let cube = app.visual.create_shape_entity(geometry);
-    cube.translate(Vector3::new(0.0, 0.5, 0.0));
-    cube.set_color(Vector3::new(0.2, 0.8, 0.2));
-    cube.rescale(Vector3::new(0.5, 0.5, 0.5));
-    ObjectController::new(cube, move |cube, app: &mut BasicApplication| {
+    {
+        let mut cube_ref = cube.borrow_mut();
+        cube_ref.translate(Vector3::new(0.0, 0.5, 0.0));
+        cube_ref.set_color(Vector3::new(0.2, 0.8, 0.2));
+        cube_ref.rescale(Vector3::new(0.5, 0.5, 0.5));
+    }
+
+    ObjectController::new(cube, move |mut cube, app: &mut BasicApplication| {
         cube.rotate(Vector3::new(0.2, 0.5, 0.9), 0.01);
     })
 }

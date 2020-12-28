@@ -20,6 +20,7 @@ use brics::{
     render_pass::{AttachmentView, RenderPass},
     renderer::Renderer,
 };
+use std::{cell::RefCell, rc::Rc};
 
 use wgpu;
 use winit;
@@ -38,12 +39,12 @@ pub struct BasicVisual {
     /*------------------*/
     depth_texture_handle: TextureHandle,
     depth_sampler_handle: SamplerHandle,
-    light_camera: CameraHandle,
+    light_camera: Rc<RefCell<CameraHandle>>,
 
     /*------------------*/
-    camera: CameraHandle,
-    light: LightHandle,
-    shapes: Vec<ShapeHandle>,
+    camera: Rc<RefCell<CameraHandle>>,
+    light: Rc<RefCell<LightHandle>>,
+    shapes: Vec<Rc<RefCell<ShapeHandle>>>,
 }
 
 impl Visual for BasicVisual {
@@ -110,10 +111,10 @@ impl Visual for BasicVisual {
 
             depth_texture_handle,
             depth_sampler_handle,
-            light_camera,
+            light_camera: Rc::new(RefCell::new(light_camera)),
 
-            camera,
-            light,
+            camera: Rc::new(RefCell::new(camera)),
+            light: Rc::new(RefCell::new(light)),
             shapes: Vec::new(),
         }
     }
@@ -133,50 +134,60 @@ impl BasicVisual {
         self.graphics.create_geometry(vertices, indices)
     }
 
-    pub fn get_main_camera(&mut self) -> &mut CameraHandle {
-        &mut self.camera
+    pub fn get_main_camera(&self) -> Rc<RefCell<CameraHandle>> {
+        self.camera.clone()
     }
 
-    pub fn get_light_camera(&mut self) -> &mut CameraHandle {
-        &mut self.light_camera
+    pub fn get_light_camera(&self) -> Rc<RefCell<CameraHandle>> {
+        self.light_camera.clone()
     }
 
-    pub fn get_light(&mut self) -> &mut LightHandle {
-        &mut self.light
+    pub fn get_light(&self) -> Rc<RefCell<LightHandle>> {
+        self.light.clone()
     }
 
-    pub fn create_shape_entity(&mut self, geometry: &Geometry) -> &mut ShapeHandle {
+    pub fn create_shape_entity(&mut self, geometry: &Geometry) -> Rc<RefCell<ShapeHandle>> {
         let pipeline = self
             .renderer
             .get_render_pass(self.pipeline_id.0)
             .get_pipeline(self.pipeline_id.1);
 
-        let shape = self.shape_handle_layout.create_handle(&self.graphics);
-        self.shapes.push(shape);
-        let shape_ref = self.shapes.last_mut().unwrap();
+        let shape = Rc::new(RefCell::new(
+            self.shape_handle_layout.create_handle(&self.graphics),
+        ));
+        self.shapes.push(shape.clone());
 
-        self.graphics.add_pipeline_entity(
-            pipeline,
-            geometry,
-            vec![
-                &self.camera,
-                shape_ref,
-                &self.light,
-                &self.light_camera,
-                &self.depth_texture_handle,
-                &self.depth_sampler_handle,
-            ],
-        );
-
+        unsafe {
+            self.graphics.add_pipeline_entity(
+                pipeline,
+                geometry,
+                vec![
+                    self.camera.try_borrow_unguarded().unwrap(),
+                    shape.try_borrow_unguarded().unwrap(),
+                    self.light.try_borrow_unguarded().unwrap(),
+                    self.light_camera.try_borrow_unguarded().unwrap(),
+                    &self.depth_texture_handle,
+                    &self.depth_sampler_handle,
+                ],
+            );
+        }
         let pipeline = self
             .renderer
             .get_render_pass(self.shadow_pipeline_id.0)
             .get_pipeline(self.shadow_pipeline_id.1);
 
-        self.graphics
-            .add_pipeline_entity(pipeline, geometry, vec![&self.light_camera, shape_ref]);
+        unsafe {
+            self.graphics.add_pipeline_entity(
+                pipeline,
+                geometry,
+                vec![
+                    self.light_camera.try_borrow_unguarded().unwrap(),
+                    shape.try_borrow_unguarded().unwrap(),
+                ],
+            );
+        }
 
-        shape_ref
+        shape
     }
 
     /*------------------------------------------------------------*/
@@ -409,12 +420,12 @@ impl BasicVisual {
     }
 
     fn update_bindings(&self) {
-        self.graphics.update_handle(&self.camera);
-        self.graphics.update_handle(&self.light_camera);
+        self.graphics.update_handle(self.camera.borrow());
+        self.graphics.update_handle(self.light_camera.borrow());
 
-        self.graphics.update_handle(&self.light);
+        self.graphics.update_handle(self.light.borrow());
         self.shapes
             .iter()
-            .for_each(|handle| self.graphics.update_handle(handle));
+            .for_each(|handle| self.graphics.update_handle(handle.borrow()));
     }
 }
