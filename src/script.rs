@@ -1,5 +1,5 @@
-use brics::application::Application;
-use brics::handle::BindingHandle;
+use super::application::Application;
+use super::handle::{BindingHandle, BindingProxy};
 
 pub trait Script<A: Application> {
     fn update(&mut self, app: &mut A);
@@ -27,22 +27,22 @@ impl<A: Application> Script<A> for LogicScript<A> {
 
 /*------------------------------------------------------------------------*/
 
-pub struct ObjectController<'a, B: BindingHandle, A: Application> {
-    object: &'a mut B,
+pub struct ObjectController<B: BindingHandle, A: Application> {
+    object: BindingProxy<B>,
     controller: Box<dyn Fn(&mut B, &mut A) + 'static>,
 }
 
-impl<'a, B: BindingHandle, A: Application> ObjectController<'a, B, A> {
-    pub fn new(object: &'a mut B, controller: impl Fn(&mut B, &mut A) + 'static) -> Self {
+impl<'a, B: BindingHandle, A: Application> ObjectController<B, A> {
+    pub fn new(object: &mut B, controller: impl Fn(&mut B, &mut A) + 'static) -> Self {
         Self {
-            object,
+            object: BindingProxy::new(object),
             controller: Box::new(controller),
         }
     }
 }
 
-impl<'a, B: BindingHandle, A: Application> Script<A> for ObjectController<'a, B, A> {
+impl<'a, B: BindingHandle, A: Application> Script<A> for ObjectController<B, A> {
     fn update(&mut self, app: &mut A) {
-        self.controller.as_ref()(&mut self.object, app);
+        self.controller.as_ref()(self.object.get(), app);
     }
 }

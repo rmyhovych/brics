@@ -1,4 +1,7 @@
+use crate::script;
 use winit::{self, dpi::Size};
+
+use super::script::Script;
 
 pub trait Visual {
     fn new(event_loop: &winit::event_loop::EventLoop<()>) -> Self
@@ -20,4 +23,10 @@ pub trait Application {
     fn request_redraw(&self);
 
     fn step(&mut self);
+}
+
+pub trait ApplicationController<A: Application> {
+    fn new(app: &mut A) -> Self;
+
+    fn step(&mut self, app: &mut A);
 }

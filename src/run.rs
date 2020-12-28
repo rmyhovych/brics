@@ -1,8 +1,10 @@
-use super::application::{Application, Visual};
+use super::application::{Application, ApplicationController};
 
-pub fn run<A: Application + 'static>(fps: u32) {
+pub fn run<A: Application + 'static, C: ApplicationController<A> + 'static>(fps: u32) {
     let event_loop = winit::event_loop::EventLoop::new();
-    let mut app = A::new(&event_loop);
+
+    let mut app = Box::new(A::new(&event_loop));
+    let mut controller = C::new(&mut app);
 
     let mut redraw_handler = RedrawHandler::new();
     event_loop.run(move |event, _, control_flow| {
@@ -12,7 +14,7 @@ pub fn run<A: Application + 'static>(fps: u32) {
 
         match event {
             winit::event::Event::MainEventsCleared => {
-                redraw_handler.request(&app);
+                redraw_handler.request(app.as_ref());
             }
 
             winit::event::Event::WindowEvent { event, .. } => match event {
@@ -27,6 +29,7 @@ pub fn run<A: Application + 'static>(fps: u32) {
                 println!("EVENT [{:?}]", event);
             }
             winit::event::Event::RedrawRequested(_) => {
+                controller.step(app.as_mut());
                 app.step();
             }
             _ => {}

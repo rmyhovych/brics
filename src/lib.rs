@@ -8,3 +8,4 @@ pub mod render_pass;
 pub mod renderer;
 pub mod run;
 pub mod shader;
+pub mod script;

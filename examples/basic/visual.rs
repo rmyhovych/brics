@@ -13,7 +13,7 @@ use brics::{
         sampler::{SamplerHandle, SamplerHandleLayout},
         shape::{ShapeHandle, ShapeHandleLayout},
         texture::{TextureHandle, TextureHandleLayout},
-        BindingHandle, BindingHandleLayout, BindingProxy,
+        BindingHandle, BindingHandleLayout,
     },
     input::InputState,
     pipeline::{BindingLayoutEntries, Geometry, Pipeline, Vertex},
@@ -133,19 +133,19 @@ impl BasicVisual {
         self.graphics.create_geometry(vertices, indices)
     }
 
-    pub fn get_main_camera(&mut self) -> BindingProxy<CameraHandle> {
-        BindingProxy::new(&mut self.camera)
+    pub fn get_main_camera(&mut self) -> &mut CameraHandle {
+        &mut self.camera
     }
 
-    pub fn get_light_camera(&mut self) -> BindingProxy<CameraHandle> {
-        BindingProxy::new(&mut self.light_camera)
+    pub fn get_light_camera(&mut self) -> &mut CameraHandle {
+        &mut self.light_camera
     }
 
-    pub fn get_light(&mut self) -> BindingProxy<LightHandle> {
-        BindingProxy::new(&mut self.light)
+    pub fn get_light(&mut self) -> &mut LightHandle {
+        &mut self.light
     }
 
-    pub fn create_shape_entity(&mut self, geometry: &Geometry) -> BindingProxy<ShapeHandle> {
+    pub fn create_shape_entity(&mut self, geometry: &Geometry) -> &mut ShapeHandle {
         let pipeline = self
             .renderer
             .get_render_pass(self.pipeline_id.0)
@@ -176,7 +176,7 @@ impl BasicVisual {
         self.graphics
             .add_pipeline_entity(pipeline, geometry, vec![&self.light_camera, shape_ref]);
 
-        BindingProxy::new(shape_ref)
+        shape_ref
     }
 
     /*------------------------------------------------------------*/

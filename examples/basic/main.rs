@@ -1,13 +1,15 @@
 extern crate brics;
 
 mod application;
-mod script;
+mod controller;
 mod vertex;
 mod visual;
 
 use application::BasicApplication;
+use controller::BasicController;
+
 use brics::run::run;
 
 fn main() {
-    run::<BasicApplication>(60);
+    run::<BasicApplication, BasicController>(60);
 }
