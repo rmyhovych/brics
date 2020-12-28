@@ -42,7 +42,7 @@ fn suspend_control_flow(control_flow: &mut winit::event_loop::ControlFlow) {
         #[cfg(not(target_arch = "wasm32"))]
         {
             winit::event_loop::ControlFlow::WaitUntil(
-                std::time::Instant::now() + std::time::Duration::from_millis(15),
+                std::time::Instant::now() + std::time::Duration::from_millis(5),
             )
         }
         #[cfg(target_arch = "wasm32")]
