@@ -1,6 +1,9 @@
 use super::application::BasicApplication;
 use brics::{
-    application::ApplicationController, handle::camera::CameraHandle, pipeline::Geometry, script::*,
+    application::ApplicationController,
+    handle::{camera::CameraHandle, shape::ShapeHandle},
+    pipeline::Geometry,
+    script::*,
 };
 use cgmath::Vector3;
 
@@ -10,52 +13,15 @@ pub struct BasicController {
 
 impl ApplicationController<BasicApplication> for BasicController {
     fn new(app: &mut BasicApplication) -> Self {
-        /*
-        let geometry = self.get_cube_geometry();
-
-        let cube = self.visual.create_shape_entity(&geometry);
-        cube.get().translate(Vector3::new(0.0, 0.5, 0.0));
-        cube.get().set_color(Vector3::new(0.2, 0.8, 0.2));
-        cube.get().rescale(Vector3::new(0.5, 0.5, 0.5));
-        self.add_controller(move |_| {
-            cube.get().rotate(Vector3::new(0.2, 0.5, 0.9), 0.01);
-        });
-
-        let light = self.visual.get_light();
-        let light_camera = self.visual.get_light_camera();
-        let camera = self.visual.get_main_camera();
-        self.add_controller(move |_| {
-            light_camera
-                .get()
-                .look_at_dir(camera.get().get_center(), -light.get().get_direction());
-        });
-
-        let camera = self.visual.get_main_camera();
-        let angle_multiplier = 0.004;
-        let mut previous_mouse_input: Option<winit::dpi::PhysicalPosition<f64>> = None;
-        self.add_controller(move |input: &InputState| match input.mouse.button {
-            Some(_) => {
-                if let Some(previous) = previous_mouse_input {
-                    let delta_x = input.mouse.location.x - previous.x;
-                    let delta_y = input.mouse.location.y - previous.y;
-
-                    camera.get().rotate_around_center(
-                        -angle_multiplier * delta_x as f32,
-                        -angle_multiplier * delta_y as f32,
-                    );
-                }
-
-                previous_mouse_input = Some(input.mouse.location);
-            }
-            None => previous_mouse_input = None,
-        });
-        */
-
         let geometry = app.get_cube_geometry();
         create_ground(app, &geometry);
 
         Self {
-            scripts: vec![Box::new(get_main_camera_script(app))],
+            scripts: vec![
+                Box::new(get_main_camera_script(app)),
+                Box::new(get_cube_script(app, &geometry)),
+                Box::new(get_light_camera_script()),
+            ],
         }
     }
 
@@ -100,4 +66,26 @@ fn get_main_camera_script(
             };
         },
     )
+}
+
+fn get_light_camera_script() -> LogicScript<BasicApplication> {
+    LogicScript::new(|app: &mut BasicApplication| {
+        app.visual.get_light_camera().look_at_dir(
+            app.visual.get_main_camera().get_center(),
+            -app.visual.get_light().get_direction(),
+        );
+    })
+}
+
+fn get_cube_script(
+    app: &mut BasicApplication,
+    geometry: &Geometry,
+) -> ObjectController<ShapeHandle, BasicApplication> {
+    let cube = app.visual.create_shape_entity(geometry);
+    cube.translate(Vector3::new(0.0, 0.5, 0.0));
+    cube.set_color(Vector3::new(0.2, 0.8, 0.2));
+    cube.rescale(Vector3::new(0.5, 0.5, 0.5));
+    ObjectController::new(cube, move |cube, app: &mut BasicApplication| {
+        cube.rotate(Vector3::new(0.2, 0.5, 0.9), 0.01);
+    })
 }

@@ -12,7 +12,7 @@ pub struct LogicScript<A: Application> {
 }
 
 impl<A: Application> LogicScript<A> {
-    pub fn new(controller: impl Fn(&mut A) + 'static) -> Self {
+    pub fn new(controller: impl FnMut(&mut A) + 'static) -> Self {
         Self {
             controller: Box::new(controller),
         }
@@ -32,7 +32,7 @@ pub struct ObjectController<B: BindingHandle, A: Application> {
     controller: Box<dyn FnMut(&mut B, &mut A) + 'static>,
 }
 
-impl<'a, B: BindingHandle, A: Application> ObjectController<B, A> {
+impl<B: BindingHandle, A: Application> ObjectController<B, A> {
     pub fn new(object: &mut B, controller: impl FnMut(&mut B, &mut A) + 'static) -> Self {
         Self {
             object: BindingProxy::new(object),
@@ -41,7 +41,7 @@ impl<'a, B: BindingHandle, A: Application> ObjectController<B, A> {
     }
 }
 
-impl<'a, B: BindingHandle, A: Application> Script<A> for ObjectController<B, A> {
+impl<B: BindingHandle, A: Application> Script<A> for ObjectController<B, A> {
     fn update(&mut self, app: &mut A) {
         self.controller.as_mut()(self.object.get(), app);
     }
