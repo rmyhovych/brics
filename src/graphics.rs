@@ -144,8 +144,8 @@ impl GraphicsManager {
         pipeline: &mut pipeline::Pipeline,
         geometry: &pipeline::Geometry,
         handles: Vec<&dyn handle::BindingHandle>,
-    ) {
-        pipeline.add_entity(&self.device, geometry, handles, 1);
+    ) -> u32 {
+        pipeline.add_entity(&self.device, geometry, handles, 1)
     }
 
     pub fn create_pipeline<T: pipeline::Vertex>(

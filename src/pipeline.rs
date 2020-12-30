@@ -66,7 +66,7 @@ pub struct Pipeline {
     handle: wgpu::RenderPipeline,
 
     bind_group_layout: wgpu::BindGroupLayout,
-    entities: Vec<Entity>,
+    entities: std::collections::HashMap<u32, Entity>,
 }
 
 impl Pipeline {
@@ -130,7 +130,7 @@ impl Pipeline {
             handle,
 
             bind_group_layout,
-            entities: Vec::new(),
+            entities: std::collections::HashMap::new(),
         }
     }
 
@@ -138,7 +138,7 @@ impl Pipeline {
         render_pass.set_pipeline(&self.handle);
         self.entities
             .iter()
-            .for_each(|entity| entity.render(render_pass));
+            .for_each(|(_, entity)| entity.render(render_pass));
     }
 
     pub fn add_entity(
@@ -149,10 +149,11 @@ impl Pipeline {
         handles: Vec<&dyn BindingHandle>,
 
         n_instances: u32,
-    ) {
+    ) -> u32 {
         let bind_group = self.create_bind_group(device, handles);
+        let id = self.find_new_id();
 
-        self.entities.push(Entity {
+        self.entities.insert(id, Entity {
             vertex_buffer: std::rc::Rc::clone(&geometry.vertex_buffer),
             index_buffer: std::rc::Rc::clone(&geometry.index_buffer),
 
@@ -162,6 +163,12 @@ impl Pipeline {
 
             bind_group,
         });
+
+        id
+    }
+
+    pub fn remove_entity(&mut self, id: u32) {
+        self.entities.remove(&id);
     }
 
     /*-------------------------------------------------*/
@@ -186,6 +193,18 @@ impl Pipeline {
             layout: &self.bind_group_layout,
             entries: entries.as_slice(),
         })
+    }
+
+    fn find_new_id(&self) -> u32 {
+        let mut id = 0;
+        loop {
+            if self.entities.contains_key(&id) {
+                id += 1;
+            }
+            else {
+                break id;
+            }
+        }
     }
 }
 

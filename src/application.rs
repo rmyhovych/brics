@@ -1,7 +1,5 @@
-use crate::script;
-use winit::{self, dpi::Size};
+use winit;
 
-use super::script::Script;
 
 pub trait Visual {
     fn new(event_loop: &winit::event_loop::EventLoop<()>) -> Self
