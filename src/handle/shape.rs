@@ -75,6 +75,10 @@ impl ShapeHandle {
             model * Matrix4::from_nonuniform_scale(self.scale.x, self.scale.y, self.scale.z);
     }
 
+    pub fn get_model(&self) -> &Matrix4<f32> {
+        &self.state.model
+    }
+
     pub fn translate(&mut self, delta: Vector3<f32>) {
         self.state.model = Matrix4::from_translation(delta) * self.state.model;
     }
