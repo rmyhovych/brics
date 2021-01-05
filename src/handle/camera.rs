@@ -128,7 +128,7 @@ impl CameraHandle {
     pub fn set_center(&mut self, x: f32, y: f32, z: f32) -> &mut Self {
         let dir = self.center - self.eye;
         self.center = Point3::new(x, y, z);
-        self.eye = self.center + dir;
+        self.eye = self.center - dir;
 
         self
     }
