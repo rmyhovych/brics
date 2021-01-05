@@ -17,17 +17,17 @@ pub struct GraphicsManager {
 }
 
 impl GraphicsManager {
-    pub async fn new(event_loop: &winit::event_loop::EventLoop<()>) -> Self {
+    pub async fn new(
+        event_loop: &winit::event_loop::EventLoop<()>,
+        window_size: Option<winit::dpi::PhysicalSize<u32>>,
+    ) -> Self {
         let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
 
-        let window = winit::window::WindowBuilder::new()
-            .with_title("rustgame")
-            .with_inner_size(winit::dpi::PhysicalSize {
-                width: 1920,
-                height: 1080,
-            })
-            .build(event_loop)
-            .unwrap();
+        let mut window_builder = winit::window::WindowBuilder::new().with_title("rustgame");
+        if let Some(wsize) = window_size {
+            window_builder = window_builder.with_inner_size(wsize);
+        }
+        let window = window_builder.build(event_loop).unwrap();
 
         let surface = unsafe { instance.create_surface(&window) };
 
