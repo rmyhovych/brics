@@ -50,7 +50,7 @@ pub struct BasicVisual {
 impl Visual for BasicVisual {
     fn new(event_loop: &winit::event_loop::EventLoop<()>) -> Self {
         let graphics: GraphicsManager =
-            futures::executor::block_on(GraphicsManager::new(event_loop));
+            futures::executor::block_on(GraphicsManager::new(event_loop, None));
 
         let camera_handle_layout = CameraHandleLayout::new(wgpu::ShaderStage::VERTEX);
         let camera = Self::create_main_camera(&camera_handle_layout, &graphics);
