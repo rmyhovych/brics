@@ -111,6 +111,10 @@ impl GraphicsManager {
         self.window.request_redraw();
     }
 
+    pub fn get_window(&mut self) -> &mut winit::window::Window {
+        &mut self.window
+    }
+
     pub fn get_window_size(&self) -> winit::dpi::PhysicalSize<u32> {
         self.window.inner_size()
     }
