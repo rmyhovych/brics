@@ -3,7 +3,7 @@ use core::panic;
 use wgpu::{self, util::DeviceExt};
 use winit;
 
-use crate::{binding, handle, pipeline, renderer::Renderer, shader};
+use crate::{binding, handle, pipeline, rcmut, renderer::Renderer, shader};
 
 use shaderc;
 
@@ -119,7 +119,7 @@ impl GraphicsManager {
         self.window.inner_size()
     }
 
-    pub fn update_handle<T: handle::BindingHandle>(&self, binding_handle: std::cell::Ref<T>) {
+    pub fn update_handle<T: handle::BindingHandle>(&self, binding_handle: &rcmut::RcMut<T>) {
         binding_handle.update(&self.queue);
     }
 

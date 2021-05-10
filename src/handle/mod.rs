@@ -4,6 +4,8 @@ pub mod sampler;
 pub mod shape;
 pub mod texture;
 
+use std::ops::Deref;
+
 use crate::{
     binding::{Binding, BindingLayout},
     graphics,
@@ -22,19 +24,4 @@ pub trait BindingHandle {
     fn get_binding(&self) -> &dyn Binding;
 
     fn update(&self, write_queue: &wgpu::Queue);
-}
-
-/*----------------------------------------------------------------------------------*/
-pub struct BindingProxy<H: BindingHandle> {
-    mem: *mut H,
-}
-
-impl<H: BindingHandle> BindingProxy<H> {
-    pub fn new(binding: &mut H) -> Self {
-        Self { mem: binding }
-    }
-
-    pub fn get(&self) -> &mut H {
-        unsafe { self.mem.as_mut().unwrap() }
-    }
 }

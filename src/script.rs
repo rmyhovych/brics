@@ -1,43 +1,47 @@
 use super::application::Application;
-use super::handle::BindingHandle;
-use std::{cell::RefCell, rc::Rc};
+use super::rcmut::RcMut;
 
-pub trait Script<A: Application> {
-    fn update(&mut self, app: &mut A);
+use std::marker::PhantomData;
+
+use std::borrow::BorrowMut;
+
+pub trait Script {
+    fn update(&mut self);
 }
 
 /*------------------------------------------------------------------------*/
 
-pub struct LogicScript<A: Application> {
+pub struct ApplicationController<A: Application> {
+    app: A,
     controller: Box<dyn FnMut(&mut A) + 'static>,
 }
 
-impl<A: Application> LogicScript<A> {
+impl<A: Application> ApplicationController<A> {
     pub fn new(controller: impl FnMut(&mut A) + 'static) -> Self {
         Self {
+            
             controller: Box::new(controller),
         }
     }
 }
 
-impl<A: Application> Script<A> for LogicScript<A> {
-    fn update(&mut self, app: &mut A) {
+impl<A: Application> Script<A> for ApplicationController<A> {
+    fn update(&mut self) {
         self.controller.as_mut()(app);
     }
 }
 
 /*------------------------------------------------------------------------*/
 
-pub struct ObjectController<B: BindingHandle, A: Application> {
-    object: Rc<RefCell<B>>,
-    controller: Box<dyn FnMut(std::cell::RefMut<B>, &mut A) + 'static>,
+pub trait Object {}
+
+pub struct ObjectController<O: Object> {
+    object: RcMut<O>,
+    controller: Box<dyn FnMut(&mut O) + 'static>,
 }
 
-impl<B: BindingHandle, A: Application> ObjectController<B, A> {
-    pub fn new(
-        object: Rc<RefCell<B>>,
-        controller: impl FnMut(std::cell::RefMut<B>, &mut A) + 'static,
-    ) -> Self {
+impl<O: Object> ObjectController<O> {
+    pub fn new(object: RcMut<O>, controller: impl FnMut(&mut O) + 'static) -> Self {
         Self {
             object,
             controller: Box::new(controller),
@@ -45,8 +49,8 @@ impl<B: BindingHandle, A: Application> ObjectController<B, A> {
     }
 }
 
-impl<B: BindingHandle, A: Application> Script<A> for ObjectController<B, A> {
-    fn update(&mut self, app: &mut A) {
-        self.controller.as_mut()(self.object.borrow_mut(), app);
+impl<O: Object> Script for ObjectController<O> {
+    fn update(&mut self) {
+        self.controller.as_mut()(&mut self.object);
     }
 }
